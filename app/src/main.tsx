@@ -285,7 +285,7 @@ function App() {
         <div className="aside-bottom">
           WINDOWS + UBUNTU
           <br />
-          <small>MuRing · 설치 마법사 0.1.11</small>
+          <small>MuRing · 설치 마법사 0.1.12</small>
         </div>
       </aside>
       <main>
@@ -682,8 +682,8 @@ function App() {
                 <section className="card">
                   <h2>Orca 자동 재패치</h2>
                   <p>
-                    업데이트 후 이름 생성 패치를 백업·검증하여 다시 적용합니다. 실행 중이면 파일 잠금이 풀릴
-                    때까지 기다리며, Orca를 강제 종료하지 않습니다.
+                    업데이트 후 이름 생성·터미널 출력 복원 패치를 확인하고 필요한 수정만 적용합니다. 이미
+                    수정된 코드는 유지하며, 파일 잠금이 풀릴 때까지 기다리며, Orca를 강제 종료하지 않습니다.
                   </p>
                   <p>
                     처리할 수 없는 버전은 알림으로 안내합니다. 완료 표시는 자동화 설치 완료를 뜻하며, 현재

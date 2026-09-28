@@ -12,7 +12,7 @@ $node = Join-Path $Directory 'runtime\node.exe'
 $script = Join-Path $Directory 'launch.ps1'
 $executable = Join-Path $PSHOME 'powershell.exe'
 $arguments = '-NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File "' + $script + '"'
-$files = @('auto-patch.cjs','controller.cjs','patch-engine.cjs','notify.ps1','launch.ps1','runtime-manifest.json','runtime\node.exe','runtime\LICENSE')
+$files = @('auto-patch.cjs','controller.cjs','patch-engine.cjs','combined-patch.cjs','terminal-patch.cjs','rename-main-hashes.json','notify.ps1','launch.ps1','runtime-manifest.json','runtime\node.exe','runtime\LICENSE')
 $manifest = Get-Content (Join-Path $source 'runtime-manifest.json') -Raw | ConvertFrom-Json
 function Verify-Runtime($root) {
   foreach ($entry in $manifest.files.PSObject.Properties) {

@@ -18,7 +18,8 @@ test('unlisted version and different minifier names pass runtime contract and pr
 });
 test('corrupt archives, duplicate targets, and unknown or already patched helpers are refused', async () => {
   const corrupt = fixture(); corrupt[corrupt.length - 1] ^= 1;
-  await assert.rejects(prepare(corrupt, []), /integrity mismatch/);
+  const { prepare: combined } = require('../../windows/orca-auto/combined-patch.cjs');
+  await assert.rejects(combined(corrupt, []), /integrity mismatch/);
   await assert.rejects(prepare(fixture('9.0', helper + helper), []), /exactly one/);
   await assert.rejects(prepare(fixture('9.0', helper.replace('getAgentEnvResolvers', 'changedEnvironmentAPI')), []), /exactly one/);
   const fixed = await prepare(fixture(), []);
@@ -72,4 +73,43 @@ test('embedded ASAR validation blocks modification instead of disabling the prot
     const c = controller(root); assert.equal((await c.tick()).status, 'needs-review');
     assert.deepEqual(fs.readFileSync(c.target), original);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+const { prepareTerminal } = require('../../windows/orca-auto/terminal-patch.cjs');
+const { prepare: combined } = require('../../windows/orca-auto/combined-patch.cjs');
+const { recovery } = require('./fixtures.cjs');
+test('official fixed recovery is unchanged; both fixed components avoid replacement', async () => {
+  const fixed = recovery.replace('e.hiddenOutputRestorePendingOverflow?e.hiddenOutputRestoreReplayingSnapshot:null', 'e.hiddenOutputRestoreReplayingSnapshot');
+  const bytes = fixture('2.0', helper, fixed);
+  const terminal = prepareTerminal(bytes);
+  assert.equal(terminal.status, 'already-fixed'); assert.equal(terminal.output, bytes);
+  const result = await combined(bytes, [{ patchedSha256: hash(bytes), version: '2.0' }]);
+  assert.equal(result.already, true); assert.equal(result.output, bytes);
+  assert.equal(result.features.terminalRecovery, 'already-fixed');
+});
+test('recovery patch preserves other payloads and enables quiet replay without overflow', () => {
+  const bytes = fixture(), result = prepareTerminal(bytes), before = archive(bytes), after = archive(result.output);
+  assert.deepEqual(before.main.data, after.main.data);
+  const code = after.entry('out/renderer/terminal.js').data.toString();
+  const vm = require('node:vm'), sandbox = {}; vm.runInNewContext(code, sandbox);
+  for (const overflow of [false, true]) {
+    const events = [], snapshot = { paintsContent: true };
+    const session = { hiddenOutputRestorePendingOverflow: overflow, hiddenOutputRestoreReplayingSnapshot: snapshot,
+      setRestoredSnapshotBaseline: (...args) => events.push(args), noteHiddenOutputRestoreFloodBackpressure: () => {},
+      abandonHiddenOutputRestoreAndDrainPendingForeground: (pty, opts) => events.push(opts.quiet) };
+    sandbox.recover(session, 'pty'); assert.equal(events[0][1], snapshot); assert.equal(events.at(-1), true);
+    session.hiddenOutputRestoreReplayingSnapshot = null; events.length = 0;
+    sandbox.recover(session, 'pty'); assert.deepEqual(events, [false]);
+  }
+  assert.equal(prepareTerminal(result.output).status, 'already-fixed');
+});
+test('unknown and ambiguous recovery paths refuse mutation', () => {
+  assert.throws(() => prepareTerminal(fixture('2.0', helper, 'function changedAPI(){}')), /missing or ambiguous/);
+  assert.throws(() => prepareTerminal(fixture('2.0', helper, recovery + recovery)), /missing or ambiguous/);
+});
+test('v1 receipt cannot hide an unpatched recovery component', async () => {
+  const original = fixture(), rename = await prepare(original, []);
+  const result = await combined(rename.output, [], { patchedSha256: hash(rename.output), revision: 1 });
+  assert.equal(result.already, false); assert.equal(result.features.wslRename, 'already-fixed');
+  assert.equal(result.features.terminalRecovery, 'applied'); assert.equal(result.revision, 2);
 });

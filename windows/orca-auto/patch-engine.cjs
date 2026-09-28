@@ -33,7 +33,7 @@ function archive(bytes) {
   const blocks = [];
   for (let i = 0; i < main.data.length; i += integrity.blockSize) blocks.push(hash(main.data.subarray(i, i + integrity.blockSize)));
   assert.deepEqual(blocks, integrity.blocks, 'Main block integrity mismatch');
-  return { header, main, pkg, integrity };
+  return { header, main, pkg, integrity, tree, entry };
 }
 
 // Exact old helper shape, with minifier names captured rather than version offsets.
@@ -108,7 +108,7 @@ async function structuralPatch(bytes) {
 function knownManifests(directory) {
   return fs.readdirSync(directory).filter(name => /^orca-.*-wsl-rename\.json$/.test(name)).map(name => JSON.parse(fs.readFileSync(path.join(directory, name))));
 }
-async function prepare(bytes, manifests) {
+async function prepareRename(bytes, manifests) {
   const sha = hash(bytes), current = manifests.find(m => m.patchedSha256 === sha);
   if (current) return { already: true, version: current.version, sha256: sha };
   const known = manifests.find(m => m.originalSha256 === sha);
@@ -122,4 +122,4 @@ async function prepare(bytes, manifests) {
   assert.equal(hash(output), known.patchedSha256); archive(output);
   return { output, version: known.version, method: 'verified-archive-hash' };
 }
-module.exports = { hash, archive, prepare, structuralPatch, marker };
+module.exports = { hash, archive, prepare: prepareRename, structuralPatch, marker };

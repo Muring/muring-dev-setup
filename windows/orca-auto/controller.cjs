@@ -4,7 +4,8 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
-const { hash, archive, prepare } = require('./patch-engine.cjs');
+const { hash } = require('./patch-engine.cjs');
+const { prepare, revision } = require('./combined-patch.cjs');
 const iso = () => new Date().toISOString();
 function json(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -67,21 +68,16 @@ class Controller {
       if (signature(this.target) !== stamp) return this.status({ status: 'updating' });
       this.seen = stamp;
       const receipt = readJson(path.join(this.stateDir, 'receipts', sourceHash + '.json'));
-      if (receipt?.patchedSha256 === sourceHash) {
-        this.cached = { status: 'patched', sha256: sourceHash, version: receipt.version, method: receipt.method };
-        return this.status(this.cached);
-      }
-      const known = this.manifests.find(m => m.patchedSha256 === sourceHash);
-      if (known) {
-        this.cached = { status: 'patched', sha256: sourceHash, version: known.version, method: 'verified-archive-hash' };
+      if (receipt?.patchedSha256 === sourceHash && receipt.revision === revision) {
+        this.cached = { status: 'patched', sha256: sourceHash, version: receipt.version, method: receipt.method, features: receipt.features };
         return this.status(this.cached);
       }
       assert(fs.statSync(this.target).size <= 512 * 1024 ** 2, 'Archive too large');
       const bytes = fs.readFileSync(this.target);
       assert.equal(hash(bytes), sourceHash, 'Archive changed while reading');
-      const prepared = await prepare(bytes, this.manifests);
+      const prepared = await prepare(bytes, this.manifests, receipt);
       if (prepared.already) {
-        this.cached = { status: 'patched', sha256: sourceHash, version: prepared.version, method: 'verified-archive-hash' };
+        this.cached = { status: 'patched', sha256: sourceHash, version: prepared.version, method: prepared.method, features: prepared.features };
         return this.status(this.cached);
       }
       const executableStamp = executablePolicy(this.executable);
@@ -98,7 +94,7 @@ class Controller {
       if (fs.existsSync(staged)) fs.unlinkSync(staged);
       fs.writeFileSync(staged, prepared.output, { flag: 'wx' });
       assert.equal(fileHash(staged), patchedHash);
-      const metadata = { originalSha256: sourceHash, patchedSha256: patchedHash, version: prepared.version, method: prepared.method, backup, createdAt: iso() };
+      const metadata = { originalSha256: sourceHash, patchedSha256: patchedHash, version: prepared.version, method: prepared.method, revision, features: prepared.features, backup, createdAt: iso() };
       json(path.join(this.stateDir, 'receipts', patchedHash + '.json'), metadata);
       this.pending = { ...metadata, staged, executableStamp };
       return this.applyPending();
@@ -124,7 +120,7 @@ class Controller {
       fs.renameSync(p.staged, this.target);
       assert.equal(fileHash(this.target), p.patchedSha256, 'Installed patch integrity mismatch');
       this.pending = null; this.seen = signature(this.target);
-      this.cached = { status: 'patched', sha256: p.patchedSha256, version: p.version, method: p.method, patchedAt: iso(), backup: p.backup };
+      this.cached = { status: 'patched', sha256: p.patchedSha256, version: p.version, method: p.method, features: p.features, patchedAt: iso(), backup: p.backup };
       this.notified = null;
       return this.status(this.cached);
     } catch (error) {
