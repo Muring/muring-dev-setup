@@ -9,3 +9,4 @@ __pycache__/
 app/test-results/
 app/playwright-report/
 .playwright-mcp/
+windows/orca-auto/runtime/

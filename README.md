@@ -10,8 +10,8 @@ GitHub 저장소는 `Muring/muring-dev-setup`으로 개명했습니다. [개명 
 
 ## 앱으로 시작하기
 
-1. [MuRingDevSetup-0.1.10-x64.exe 다운로드](https://github.com/Muring/muring-dev-setup/releases/download/MuRingDevSetup-0.1.10-x64.exe/MuRingDevSetup-0.1.10-x64.exe)를 눌러 EXE를 받습니다. **Git clone은 필요 없습니다.**
-2. 다운로드한 `MuRingDevSetup-0.1.10-x64.exe`를 **Windows 로컬 폴더에서 실행**합니다. 서명되지 않은 파일이라 처음 한 번은 SmartScreen 창이 뜹니다. **추가 정보 → 실행**을 누르세요. 앱이 시작되면 다운로드 표시를 스스로 지워 다음 실행부터는 묻지 않습니다. 그래도 계속 뜨면 파일 속성에서 **차단 해제**를 체크하세요.
+1. [MuRingDevSetup-0.1.11-x64.exe 다운로드](https://github.com/Muring/muring-dev-setup/releases/download/MuRingDevSetup-0.1.11-x64.exe/MuRingDevSetup-0.1.11-x64.exe)를 눌러 EXE를 받습니다. **Git clone은 필요 없습니다.**
+2. 다운로드한 `MuRingDevSetup-0.1.11-x64.exe`를 **Windows 로컬 폴더에서 실행**합니다. 서명되지 않은 파일이라 처음 한 번은 SmartScreen 창이 뜹니다. **추가 정보 → 실행**을 누르세요. 앱이 시작되면 다운로드 표시를 스스로 지워 다음 실행부터는 묻지 않습니다. 그래도 계속 뜨면 파일 속성에서 **차단 해제**를 체크하세요.
 3. **환경 확인**을 누릅니다. WSL, 기존 Ubuntu, 드라이브 여유 공간과 Orca 상태를 검사합니다.
 4. WSL이 없으면 **WSL 준비**를 누릅니다. 이 단계에서만 Windows 관리자 권한(UAC) 창이 한 번 뜹니다. WSL 기능과 Store판 WSL 패키지(`wsl --version`으로 확인)가 모두 준비돼야 **준비됨**으로 표시되고 다음 단계가 열립니다. 이후 단계의 wsl.exe 호출이 스스로 관리자 권한을 요청하지 않게 하기 위해서입니다. 다른 버튼은 관리자 권한을 쓰지 않으며, Orca 설치 창만 Orca 설치 파일 자체의 권한 요청이 있습니다.
 5. 재부팅이 필요하면 작업을 저장하고 재부팅한 다음 같은 앱을 다시 엽니다.
@@ -35,8 +35,8 @@ WSL 최신 버전 비교 기능은 없으며, 필요할 때 Windows PowerShell�
 
 **사용자 PC에 Git, Node, Python을 미리 설치하거나 이 저장소를 clone할 필요가 없습니다.**
 실행 파일에는 앱 런타임과 설치 스크립트가 들어 있습니다. 커맨드·스킬은 설치 시 GitHub에서 별도로 받습니다. 다운로드에는 인터넷이 필요합니다.
-[릴리스 페이지](https://github.com/Muring/muring-dev-setup/releases/tag/MuRingDevSetup-0.1.10-x64.exe)에서 변경 내용과
-[SHA-256 파일](https://github.com/Muring/muring-dev-setup/releases/download/MuRingDevSetup-0.1.10-x64.exe/SHA256SUMS.txt)도 확인할 수 있습니다.
+[릴리스 페이지](https://github.com/Muring/muring-dev-setup/releases/tag/MuRingDevSetup-0.1.11-x64.exe)에서 변경 내용과
+[SHA-256 파일](https://github.com/Muring/muring-dev-setup/releases/download/MuRingDevSetup-0.1.11-x64.exe/SHA256SUMS.txt)도 확인할 수 있습니다.
 현재 버전은 서명되지 않은 **초기 검증판(Pre-release)**입니다. 신규 Windows 전체 설치 검증은 아직 남아 있습니다.
 GitHub의 `Source code (zip/tar.gz)`는 개발용 소스이며, 설치할 때는 `.exe` 파일을 받으세요.
 
@@ -75,7 +75,7 @@ Windows 저장 위치는 Ubuntu 가상 디스크의 위치이며, Ubuntu 내부 
 
 ## 커맨드·스킬만 업데이트하기
 
-**기존 0.1.0 사용자는 0.1.10 EXE를 한 번 새로 받으세요.** 이후 커맨드·스킬 내용 변경에는 EXE 재다운로드가 필요 없습니다.
+**기존 0.1.0 사용자는 0.1.11 EXE를 한 번 새로 받으세요.** 이후 커맨드·스킬 내용 변경에는 EXE 재다운로드가 필요 없습니다.
 
 1. Windows에서 앱을 열고 대상 Ubuntu와 Linux 계정을 확인합니다.
 2. **설치 구성**에서 Claude 스킬·Claude 커맨드·Codex 공용 스킬 중 사용할 항목을 선택합니다.
@@ -217,7 +217,11 @@ GitHub 배포 메타데이터의 SHA-256과 파일 크기를 검증하며, 다�
 설치 버튼은 자동 무인 설치가 아니라 공식 설치 창을 여는 동작입니다.
 
 자동 검사 경로는 `%LOCALAPPDATA%\Programs\orca`입니다.
-패치는 **검증된 Windows Orca 1.4.202/1.4.215 app.asar만** 지원합니다. 업데이트하면 로컬 패치가 사라질 수 있습니다. 설치 구성에서 **Orca 패치 누락 감시**를 선택하면 로그인 시와 5분마다 누락·미검증 버전을 확인해 알립니다. 감시는 앱을 수정하거나 업데이트를 차단하지 않습니다. Orca 스킬·패치와 독립적으로 선택할 수 있고, 기존 감시 파일이 오래됐거나 예약 작업이 비활성화돼 있으면 재설치합니다. 선택 해제는 새 실행에서 설치를 건너뛰는 동작이며, 기존 감시는 패치 안내의 제거 명령으로 삭제합니다. 자세한 지원·복구·감시 제거 방법은 [패치 안내](windows/patches/README.md)를 참고하세요.
+수동 패치는 **검증된 Windows Orca 1.4.202/1.4.215 app.asar만** 지원합니다. 업데이트하면 로컬 패치가 사라질 수 있습니다. 설치 구성에서 **Orca 패치 누락 감시**를 선택하면 로그인 시와 5분마다 누락·미검증 버전을 확인해 알립니다. 감시는 앱을 수정하거나 업데이트를 차단하지 않습니다. Orca 스킬·패치와 독립적으로 선택할 수 있고, 기존 감시 파일이 오래됐거나 예약 작업이 비활성화돼 있으면 재설치합니다. 선택 해제는 새 실행에서 설치를 건너뛰는 동작이며, 기존 감시는 패치 안내의 제거 명령으로 삭제합니다. 자세한 지원·복구·감시 제거 방법은 [패치 안내](windows/patches/README.md)를 참고하세요.
+**Orca 자동 재패치**를 선택하면 업데이트 후 패치를 자동으로 다시 적용합니다. 엔진과 전용 Windows Node 런타임이 EXE에 포함되어 있어 저장소 다운로드나 별도 Windows Node 설치가 필요 없습니다. WSL·개발 도구·Orca 자체 설치에는 기존과 같이 인터넷이 필요합니다. 알려진 원본 해시 또는 엄격히 일치하는 함수 구조에만 적용하며, 원본을 백업하고 파일 잠금이 풀릴 때까지 기다립니다. 앱을 강제 종료하거나 공식 업데이트를 막지 않습니다. 처리할 수 없는 버전은 알림으로 안내합니다.
+자동화는 기본 선택 해제 상태이며, 설치 완료와 현재 패치 적용 완료는 구분합니다. 알림만 원하면 기존 감시 항목을, 자동 복구까지 원하면 자동 재패치 항목을 선택하세요. 두 항목을 함께 선택하면 알림이 중복될 수 있습니다. 선택 해제는 기존 자동화를 제거하지 않습니다. [자동 재패치 운영·제거 안내](windows/orca-auto/README.md)를 참고하세요.
+
+아래는 버전별 **수동 패치**의 동작입니다.
 원본과 결과 SHA-256을 확인하며 원본을 `resources/app.asar.bootstrap-wsl-rename.<버전>.original`에 백업합니다.
 다른 버전은 수정하지 않습니다. 앱을 자동 종료하거나 업데이트 후 자동 재패치하지 않습니다.
 사용자 지정 경로의 패치는 아래 CLI를 사용합니다.
@@ -322,7 +326,7 @@ KB만 따로 재시도하는 `linux/setup-kb.sh`도 유지합니다.
 
 ## 앱 개발과 빌드
 
-개발자 환경에는 Node 22.23.2 이상과 npm이 필요합니다. 일반 사용자에게는 필요 없습니다.
+개발자 빌드 환경에는 Node 22.23.2 이상, npm, Python 3가 필요합니다. 일반 사용자에게는 필요 없습니다.
 
 ```bash
 cd app
@@ -332,9 +336,11 @@ npm test
 npm run dist:win
 ```
 
+빌드 시 고정 SHA-256으로 검증한 Windows Node 런타임과 라이선스를 내려받아 EXE에 동봉합니다. 사용자 PC에서는 자동 재패치 실행을 위해 추가 다운로드하지 않습니다. CLI 소스에서 설치할 때는 먼저 `python3 windows/prepare-orca-runtime.py`로 런타임을 준비하세요.
+
 Windows 포터블 산출물: `app/release/MuRingDevSetup-<package.json의 버전>-x64.exe`
 
-현재 버전은 0.1.10입니다. 기존 0.1.8 릴리스는 교체하지 않습니다.
+현재 버전은 0.1.11입니다. 기존 릴리스는 교체하지 않습니다.
 
 Windows에서 개발용 앱을 실행하려면 `npm start`를 사용합니다.
 Linux에서 실행하면 화면 개발만 가능하며 Windows 설치 기능은 차단됩니다.

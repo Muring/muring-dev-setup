@@ -305,5 +305,19 @@
     },
     "recommend": "never",
     "required": false
+  },
+  {
+    "id": "orca-auto",
+    "title": "Orca 자동 재패치",
+    "description": "업데이트 후 이름 생성 패치를 백업·검증하여 다시 적용합니다. 실행 중이면 파일 잠금 해제까지 기다리며 강제 종료하지 않습니다.",
+    "depends": [
+      "base"
+    ],
+    "defaults": {
+      "muring": false,
+      "common": false
+    },
+    "recommend": "never",
+    "required": false
   }
 ]

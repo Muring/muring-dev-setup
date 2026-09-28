@@ -45,9 +45,11 @@ npm test
 npm run build
 # UI 테스트 환경을 처음 준비할 때: npx playwright install --with-deps chromium
 npm run test:ui
-npm run dist:win
+npm run dist:win # 고정 해시로 검증한 Windows Node 런타임·라이선스도 동봉
 cd ..
 ```
+
+자동 재패치 변경 시 `node --test tests/orca-auto/test.cjs`를 실행합니다. Windows의 `tests/orca-auto/install.ps1`과 `tests/orca-auto/windows-test.ps1`으로 외부 Node 없는 설치·재설치 및 잠금·연속 업데이트·복원을 확인합니다. 먼저 `python3 windows/prepare-orca-runtime.py`로 테스트용 동봉 런타임을 준비합니다.
 
 Windows에서는 `tests/app-host.ps1`, `tests/wsl-location.ps1`, `tests/orca-wsl-monitor.ps1`도 실행합니다. 감시 검사는 임시 예약 작업을 생성하고 삭제합니다.
 검증된 원본이 있을 때 `tests/orca-wsl-rename.ps1`을 실행하고, 없는 경우 미검증으로 명시합니다.

@@ -99,7 +99,11 @@ test.beforeEach(async ({ page }) => {
 });
 test('recommended choices preserve existing config and dependency deselection cascades', async ({ page }) => {
   await page.getByRole('button', { name: '설치 구성 선택 →' }).click();
-  await expect(page.getByRole('checkbox')).toHaveCount(22);
+  await expect(page.getByRole('checkbox')).toHaveCount(23);
+  const autoPatch = page.getByRole('checkbox', { name: 'Orca 자동 재패치', exact: false });
+  await expect(autoPatch).not.toBeChecked();
+  await autoPatch.check();
+  await expect(autoPatch).toBeChecked();
   await expect(page.getByRole('checkbox', { name: '.zshrc 전체 교체', exact: false })).not.toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'Claude 권한 경고 생략', exact: false })).not.toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'Orca 1.4.202/1.4.215', exact: false })).toBeDisabled();

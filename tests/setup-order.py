@@ -25,6 +25,7 @@ with tempfile.TemporaryDirectory() as temporary:
         assert result == (1 if failures else 0), events
         assert states['orca-patch']=='skipped'
         assert states['orca-monitor']=='skipped'
+        assert states['orca-auto']=='skipped'
         assert states['shell-replace']=='skipped'
         if 'base' in failures:
             assert not any(mode=='apply' and item!='base' for item,mode in calls)
@@ -58,3 +59,11 @@ with tempfile.TemporaryDirectory() as temporary:
     assert not any(item in ('orca', 'orca-patch') for item, _ in calls)
     assert calls.index(('base', 'apply')) < calls.index(('orca-monitor', 'apply'))
     print('PASS: opt-in monitor installs independently of Orca skills and patch')
+
+    auto = validate({**defaults(), 'selected': ['base', 'orca-auto']})
+    calls.clear(); installed.clear()
+    assert execute(auto, root/'auto.jsonl', executor=monitor_command) == 0
+    assert ('orca-auto', 'apply') in calls
+    assert not any(item in ('node', 'orca', 'orca-patch', 'orca-monitor') for item, _ in calls)
+    assert calls.index(('base', 'apply')) < calls.index(('orca-auto', 'apply'))
+    print('PASS: auto-patch installs without external Node or Orca skill prerequisites')

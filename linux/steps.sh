@@ -42,6 +42,7 @@ check() {
       for skill in computer-use orca-cli orchestration; do
         [[ -f "$HOME/.agents/skills/$skill/SKILL.md" || -f "$HOME/.claude/skills/$skill/SKILL.md" ]] || return 20
       done ;;
+    orca-auto) powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/install-orca-auto.ps1")" -Check >/dev/null ;;
     orca-monitor) powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/install-orca-wsl-monitor.ps1")" -Check >/dev/null ;;
     orca-patch) powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/check-orca.ps1")" -Patched >/dev/null ;;
     *) return 2 ;;
@@ -81,6 +82,7 @@ apply() {
       command -v orca-ide >/dev/null 2>&1 || return 20
       timeout --foreground 120s orca-ide skills install --skill computer-use --skill orca-cli --skill orchestration || true
       check ;;
+    orca-auto) timeout --foreground 120s powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/install-orca-auto.ps1")" ;;
     orca-monitor) timeout --foreground 120s powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/install-orca-wsl-monitor.ps1")" ;;
     orca-patch) timeout --foreground 180s powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/fix-orca-wsl-rename.ps1")" ;;
     *) return 2 ;;

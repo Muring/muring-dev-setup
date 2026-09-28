@@ -1,6 +1,6 @@
 {
   "name": "dev-bootstrap-wizard",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "description": "Windows and Ubuntu development setup wizard",
   "author": "MuRing",
@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build && tsc -p tsconfig.electron.json",
     "start": "npm run build && electron .",
     "test": "tsx --test test/*.test.ts",
-    "dist:win": "npm run build && electron-builder --win portable --x64",
+    "dist:win": "python3 ../windows/prepare-orca-runtime.py && npm run build && electron-builder --win portable --x64",
     "test:ui": "playwright test",
     "format": "prettier --write \"src/**/*\" \"electron/**/*\" \"test/**/*\" \"ui-test/**/*\" \"*.ts\" \"*.mts\" \"index.html\"",
     "format:check": "prettier --check \"src/**/*\" \"electron/**/*\" \"test/**/*\" \"ui-test/**/*\" \"*.ts\" \"*.mts\" \"index.html\""

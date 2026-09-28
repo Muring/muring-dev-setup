@@ -285,7 +285,7 @@ function App() {
         <div className="aside-bottom">
           WINDOWS + UBUNTU
           <br />
-          <small>MuRing · 설치 마법사 0.1.10</small>
+          <small>MuRing · 설치 마법사 0.1.11</small>
         </div>
       </aside>
       <main>
@@ -675,6 +675,22 @@ function App() {
                   </p>
                   <button disabled={busy} onClick={() => action(() => api.run('kb'))}>
                     KB 연결 재시도
+                  </button>
+                </section>
+              )}
+              {config.selected.includes('orca-auto') && (
+                <section className="card">
+                  <h2>Orca 자동 재패치</h2>
+                  <p>
+                    업데이트 후 이름 생성 패치를 백업·검증하여 다시 적용합니다. 실행 중이면 파일 잠금이 풀릴
+                    때까지 기다리며, Orca를 강제 종료하지 않습니다.
+                  </p>
+                  <p>
+                    처리할 수 없는 버전은 알림으로 안내합니다. 완료 표시는 자동화 설치 완료를 뜻하며, 현재
+                    패치 적용 완료와는 다릅니다.
+                  </p>
+                  <button disabled={busy} onClick={() => action(() => api.run('orca-auto'))}>
+                    자동 재패치 설치·상태 재확인
                   </button>
                 </section>
               )}
