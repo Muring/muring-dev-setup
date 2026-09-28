@@ -439,8 +439,11 @@ ol {
   margin-top: 32px;
   line-height: 1.8;
 }
-.loading {
-  margin: 40px;
+main.loading {
+  margin: 0;
+  padding: 40px;
+  align-items: flex-start;
+  overflow: auto;
 }
 @keyframes pulse {
   50% {

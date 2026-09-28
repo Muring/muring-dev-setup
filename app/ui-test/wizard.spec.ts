@@ -1,11 +1,14 @@
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 import fs from 'node:fs';
 import { defaults } from '../electron/model';
 const catalog = JSON.parse(fs.readFileSync('../shared/catalog.json', 'utf8'));
-test.beforeEach(async ({ page }) => {
+const test = base.extend<{ startupFailure: string }>({
+  startupFailure: ['', { option: true }],
+});
+test.beforeEach(async ({ page, startupFailure }) => {
   const config = defaults(catalog);
   await page.addInitScript(
-    ({ catalog, config }) => {
+    ({ catalog, config, startupFailure }) => {
       const state: any = {
         config,
         events: [],
@@ -92,11 +95,71 @@ test.beforeEach(async ({ page }) => {
         reboot: async () => {},
         logs: async () => {},
       };
+      if (startupFailure) {
+        const w = window as any;
+        w.startupFail = true;
+        w.startupCalls = { catalog: 0, snapshot: 0 };
+        for (const method of ['catalog', 'snapshot']) {
+          const original = w.bootstrap[method];
+          w.bootstrap[method] = async () => {
+            w.startupCalls[method]++;
+            if (w.startupFail && method === startupFailure) throw Error('초기 조회 실패');
+            if (method === 'snapshot' && w.holdStartup)
+              await new Promise<void>(resolve => {
+                w.releaseStartup = resolve;
+              });
+            return original();
+          };
+        }
+      }
     },
-    { catalog, config },
+    { catalog, config, startupFailure },
   );
   await page.goto('/');
 });
+
+for (const startupFailure of ['snapshot', 'catalog']) {
+  test.describe(`initial ${startupFailure} failure`, () => {
+    test.use({ startupFailure, viewport: { width: 900, height: 650 } });
+    test('shows repeated errors and reloads both inputs before starting polling', async ({
+      page,
+    }, testInfo) => {
+      await expect(page.getByRole('alert')).toHaveText('초기 조회 실패');
+      const retry = page.getByRole('button', { name: '다시 시도', exact: true });
+      await expect(retry).toBeEnabled();
+      await expect(retry).toBeInViewport();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath('startup-error.png') });
+      await page.waitForTimeout(1200);
+      expect(await page.evaluate(() => (window as any).startupCalls)).toEqual({ catalog: 1, snapshot: 1 });
+
+      await retry.click();
+      await expect
+        .poll(() => page.evaluate(() => (window as any).startupCalls))
+        .toEqual({ catalog: 2, snapshot: 2 });
+      await expect(page.getByRole('alert')).toHaveText('초기 조회 실패');
+      await page.evaluate(() => {
+        (window as any).startupFail = false;
+        (window as any).holdStartup = true;
+      });
+      await retry.click();
+      await expect(page.getByRole('status')).toHaveText('설치 환경을 준비하고 있습니다…');
+      await expect(retry).toHaveCount(0);
+      await expect(page.getByRole('alert')).toHaveCount(0);
+      await page.waitForTimeout(1200);
+      expect(await page.evaluate(() => (window as any).startupCalls)).toEqual({ catalog: 3, snapshot: 3 });
+      await page.evaluate(() => {
+        (window as any).holdStartup = false;
+        (window as any).releaseStartup();
+      });
+      await expect(page.getByRole('heading', { name: '환경 확인', exact: true })).toBeVisible();
+      await expect.poll(() => page.evaluate(() => (window as any).startupCalls.snapshot)).toBeGreaterThan(3);
+      await page.getByRole('button', { name: '설치 구성 선택 →' }).click();
+      await expect(page.getByRole('checkbox')).toHaveCount(23);
+      expect(await page.evaluate(() => (window as any).installerRan)).toBeUndefined();
+    });
+  });
+}
 test('recommended choices preserve existing config and dependency deselection cascades', async ({ page }) => {
   await page.getByRole('button', { name: '설치 구성 선택 →' }).click();
   await expect(page.getByRole('checkbox')).toHaveCount(23);

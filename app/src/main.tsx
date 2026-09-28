@@ -67,9 +67,13 @@ function App() {
   const [railOpen, setRailOpen] = useState(() => window.innerWidth >= 1240);
   const [reviewed, setReviewed] = useState('');
   const [connectionVisited, setConnectionVisited] = useState(false);
+  const [startupAttempt, setStartupAttempt] = useState(0);
+  const [startupError, setStartupError] = useState('');
   useEffect(() => {
+    let active = true;
     Promise.all([api.catalog(), api.snapshot()])
       .then(([items, state]) => {
+        if (!active) return;
         setCatalog(items);
         setSnapshot(state);
         setConfig(state.config);
@@ -78,7 +82,16 @@ function App() {
             '이전 설치 기록이 있습니다. 환경 확인 후 재실행하면 실제 상태를 검사해 이어서 진행합니다.',
           );
       })
-      .catch(e => setError(String(e)));
+      .catch(e => {
+        if (active) setStartupError(String(e).replace(/^Error: /, ''));
+      });
+    return () => {
+      active = false;
+    };
+  }, [startupAttempt]);
+  const initialized = config !== undefined;
+  useEffect(() => {
+    if (!initialized) return;
     const timer = setInterval(() => {
       api
         .snapshot()
@@ -86,7 +99,7 @@ function App() {
         .catch(() => {});
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [initialized]);
   // Below 1240px the open rail overlays the body, so collapse it when the window gets that narrow.
   useLayoutEffect(() => {
     const onResize = () => {
@@ -102,7 +115,29 @@ function App() {
     if (liveOperation && liveOperation.startedAt !== staleRef.current)
       setOperations(previous => ({ ...previous, [ownerRef.current]: liveOperation }));
   }, [liveOperation]);
-  if (!config || !snapshot) return <main className="loading">설치 환경을 준비하고 있습니다…</main>;
+  if (!config || !snapshot)
+    return (
+      <main className="loading" aria-busy={!startupError}>
+        {startupError ? (
+          <>
+            <h1>설치 환경을 불러오지 못했습니다.</h1>
+            <p role="alert" className="banner error">
+              {startupError}
+            </p>
+            <button
+              className="primary"
+              onClick={() => {
+                setStartupError('');
+                setStartupAttempt(attempt => attempt + 1);
+              }}>
+              다시 시도
+            </button>
+          </>
+        ) : (
+          <p role="status">설치 환경을 준비하고 있습니다…</p>
+        )}
+      </main>
+    );
   const busy = working || snapshot.busy;
   const access = workflowAccess(config, snapshot, reviewed, connectionVisited);
   const visiblePage =
