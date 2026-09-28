@@ -1,0 +1,22 @@
+{
+  "version": "1.4.215",
+  "originalSha256": "07ac05d90379ccca8d9505c89a09666965068d1b51c8f44cae68a8f34116c045",
+  "patchedSha256": "97f01a4a0a45275cf71e70ec6bfd0c5357f4ccaba0c9164e3990cc74b0b8ac2d",
+  "edits": [
+    {
+      "offset": 229007,
+      "remove": 261,
+      "text": "{\"algorithm\":\"SHA256\",\"hash\":\"65704167c4dd34fc9b4434dd2f5452d02f49b57ff1c9d49ce856d832fc9a314f\",\"blockSize\":4194304,\"blocks\":[\"9602002494ebc98cbdde91cb90f7a88f5397b290cfe33419277dd8cbfcbad864\",\"4853a854eb8f505e260185ec75c7165a518e6a5834529d7ba12e3c395670d920\"]}"
+    },
+    {
+      "offset": 6668154,
+      "remove": 1819,
+      "text": "\n;(() => {\n  const guardKey = \"__ORCA_BOOTSTRAP_FATAL_EXIT_GUARD__\"\n  if (typeof globalThis[guardKey] === 'function') {\n    return\n  }\n  const describeBootstrapError = (error) => {\n    try {\n      const detail = error && typeof error === 'object' && error.stack ? error.stack : error\n      return String(detail).split('\\n').slice(0, 12).join(' | ').slice(0, 4000)\n    } catch {\n      return '<unprintable error>'\n    }\n  }\n  const readBootstrapFatalLogOverride = () => {\n    const override = typeof process.env === 'object' && process.env ? process.env.ORCA_BOOTSTRAP_FATAL_LOG : undefined\n    return typeof override === 'string' && override.length > 0 ? override : undefined\n  }\n  const resolveDefaultBootstrapFatalLogPath = () => {\n    let directory\n    try {\n      directory = require('electron').app.getPath('userData')\n    } catch {\n      // Why: a bootstrap fault can predate a usable app object; temp still outlives the process.\n      directory = require('node:os').tmpdir()\n    }\n    return require('node:path').join(directory, \"bootstrap-fatal.log\")\n  }\n  const appendBootstrapFatalLine = (fs, logPath, entry) => {\n    try {\n      // Why: an override can name a directory nothing has created yet, and a missing\n      // parent would drop the only account of the failure.\n    fs.mkdirSync(require('node:path').dirname(logPath), { recursive: true })\n// Why: a broken install repeats this on every relaunch; keep the trail bounded.\nlet flags = 'a'\ntry {\nflags = fs.statSync(logPath).size > 262144 ? 'w' : 'a'\n} catch {\nflags = 'a'\n}\nconst descriptor = fs.openSync(logPath, flags, 0o600)\ntry {\nfs.writeSync(descriptor, entry)\n} finally {\nfs.closeSync(descriptor)\n}\nreturn true\n} catch {\nreturn false\n}\n}\n"
+    },
+    {
+      "offset": 12384132,
+      "remove": 257,
+      "text": "async function VWi(e,t,n,r){if(n)return{kind:`remote`,cwd:e,execute:(e,t,r,i)=>n.executeCommitMessagePlan(e,t,r,i),missingBinaryLocation:`remote PATH`};let d=process.platform===`win32`?h.r(e)?.distro:void 0,i=await kq(t,r.getAgentEnvResolvers(),d?{runtime:`wsl`,wslDistro:d}:void 0);return i.ok?{kind:`local`,cwd:e,...d?{wslDistro:d}:{},...i.env?{env:i.env}:{}}:null}"
+    }
+  ]
+}

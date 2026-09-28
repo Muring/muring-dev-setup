@@ -9,6 +9,8 @@ const assert = require('node:assert/strict');
     .pages()
     .find(p => p.url().startsWith('file:'));
   assert(page, 'App page missing');
+  assert.equal(await page.title(), 'MuRing Dev Setup');
+  await page.getByText('MuRing · 설치 마법사 0.1.10', { exact: true }).waitFor();
   const errors = [];
   page.on('pageerror', error => errors.push(String(error)));
   await page.getByRole('heading', { name: '환경 확인', exact: true }).waitFor();
@@ -34,7 +36,7 @@ const assert = require('node:assert/strict');
       error: state.inspection.error,
     };
   });
-  assert.equal(result.catalog, 21);
+  assert.equal(result.catalog, 22);
   assert.equal(result.supported, true);
   assert.equal(result.wsl, true);
   assert.equal(result.linux, true, result.error);
@@ -49,7 +51,12 @@ const assert = require('node:assert/strict');
   assert.deepEqual(errors, []);
   await page.getByRole('button', { name: '설치 구성 선택 →' }).click();
   await page.getByRole('heading', { name: '설치 구성', exact: true }).waitFor();
-  assert.equal(await page.getByRole('checkbox').count(), 21);
+  assert.equal(await page.getByRole('checkbox').count(), 22);
+  const monitor = page.getByRole('checkbox', { name: 'Orca 패치 누락 감시', exact: false });
+  assert.equal(await monitor.isChecked(), false);
+  assert.equal(await monitor.isEnabled(), true);
+  await monitor.check();
+  assert.equal(await monitor.isChecked(), true);
   assert.equal(
     await page.locator('nav').getByRole('button', { name: '설치 진행', exact: false }).isDisabled(),
     true,

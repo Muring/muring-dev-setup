@@ -1,4 +1,4 @@
-﻿# Applies the verified Orca 1.4.202 archive delta; no downloads or app termination.
+﻿# Applies the verified Orca archive delta; no downloads or app termination.
 [CmdletBinding()]
 param(
   [string]$AppDir = (Join-Path $env:LOCALAPPDATA 'Programs\orca'),
@@ -6,19 +6,29 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 try {
-  $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'patches\orca-1.4.202-wsl-rename.json') -Raw | ConvertFrom-Json
   $target = Join-Path $AppDir 'resources\app.asar'
-  $backup = "$target.bootstrap-wsl-rename.original"
   if (-not (Test-Path -LiteralPath $target)) {
     throw 'Orca is not installed at this path. Install Orca, then rerun setup (or pass -AppDir).'
   }
   function Hash($path) { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
   $current = Hash $target
+  $manifest = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'patches') -Filter 'orca-*-wsl-rename.json' | ForEach-Object {
+    $entry = Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json
+    if ($current -eq $entry.originalSha256 -or $current -eq $entry.patchedSha256) { $entry }
+  })
+  if ($manifest.Count -ne 1) { throw 'Unsupported Orca archive. Review this build before patching.' }
+  $manifest = $manifest[0]
+  $backup = "$target.bootstrap-wsl-rename.$($manifest.version).original"
+  # Preserve restore support for backups made by the original installer.
+  $legacyBackup = "$target.bootstrap-wsl-rename.original"
+  if (-not (Test-Path -LiteralPath $backup) -and (Test-Path -LiteralPath $legacyBackup) -and (Hash $legacyBackup) -eq $manifest.originalSha256) {
+    Copy-Item -LiteralPath $legacyBackup -Destination $backup
+  }
   $desired = if ($Restore) { $manifest.originalSha256 } else { $manifest.patchedSha256 }
   $expected = if ($Restore) { $manifest.patchedSha256 } else { $manifest.originalSha256 }
   if ($current -eq $desired) { Write-Host 'Orca WSL rename: checksum verified; already in desired state.'; exit 0 }
   if ($current -ne $expected) {
-    throw 'Unsupported Orca archive. Only the verified 1.4.202 build is supported; review this version before patching.'
+    throw 'Unsupported Orca archive. Review this version before patching.'
   }
   $temp = "$target.bootstrap-$([guid]::NewGuid().ToString('N')).tmp"
   try {

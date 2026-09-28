@@ -83,10 +83,12 @@ try {
       $archive = Join-Path $env:LOCALAPPDATA 'Programs\orca\resources\app.asar'
       $supported = $false; $patched = $false
       if (Test-Path -LiteralPath $archive) {
-        $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'patches\orca-1.4.202-wsl-rename.json') -Raw | ConvertFrom-Json
         $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-        $patched = $hash -eq $manifest.patchedSha256
-        $supported = $patched -or $hash -eq $manifest.originalSha256
+        foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'patches') -Filter 'orca-*-wsl-rename.json') {
+          $manifest = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json
+          $patched = $patched -or $hash -eq $manifest.patchedSha256
+          $supported = $supported -or $patched -or $hash -eq $manifest.originalSha256
+        }
       }
       Report-Progress 'Windows 검사 완료' 4 4
       Write-Result @{ supported=($build -ge 22000 -and [Environment]::Is64BitOperatingSystem -and $env:PROCESSOR_ARCHITECTURE -ne 'ARM64' -and $env:PROCESSOR_ARCHITEW6432 -ne 'ARM64'); windowsBuild=$build; wslReady=$wsl.Complete; wslVersion=$wsl.Version; locationSupported=($help -match '--location\b'); distros=$distros; drives=$drives; orcaInstalled=(Test-Path -LiteralPath $archive); patchSupported=$supported; patchApplied=$patched }

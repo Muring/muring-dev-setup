@@ -99,10 +99,15 @@ test.beforeEach(async ({ page }) => {
 });
 test('recommended choices preserve existing config and dependency deselection cascades', async ({ page }) => {
   await page.getByRole('button', { name: '설치 구성 선택 →' }).click();
-  await expect(page.getByRole('checkbox')).toHaveCount(21);
+  await expect(page.getByRole('checkbox')).toHaveCount(22);
   await expect(page.getByRole('checkbox', { name: '.zshrc 전체 교체', exact: false })).not.toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'Claude 권한 경고 생략', exact: false })).not.toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Orca 1.4.202', exact: false })).toBeDisabled();
+  await expect(page.getByRole('checkbox', { name: 'Orca 1.4.202/1.4.215', exact: false })).toBeDisabled();
+  const monitor = page.getByRole('checkbox', { name: 'Orca 패치 누락 감시', exact: false });
+  await expect(monitor).not.toBeChecked();
+  await expect(monitor).toBeEnabled();
+  await monitor.check();
+  await expect(monitor).toBeChecked();
   await page.getByRole('checkbox', { name: 'Node · fnm', exact: false }).uncheck();
   await expect(page.getByRole('checkbox', { name: '개인 지식 저장소', exact: false })).not.toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'Codex Recommended', exact: false })).not.toBeChecked();
@@ -114,6 +119,7 @@ test('review, progress, authentication, and incomplete summary are separate', as
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(String(e)));
   await page.getByRole('button', { name: '설치 구성 선택 →' }).click();
+  await page.getByRole('checkbox', { name: 'Orca 패치 누락 감시', exact: false }).check();
   await page.getByRole('button', { name: '변경 내용 확인 →' }).click();
   await expect(page.getByText('.zshrc 기존 내용 보존, 관리 블록 연결')).toBeVisible();
   await page.getByRole('button', { name: '선택한 항목 설치 시작' }).click();
@@ -123,6 +129,8 @@ test('review, progress, authentication, and incomplete summary are separate', as
   ).toBeVisible();
   await expect(page.getByRole('button', { name: '진행 기록 보기' })).toHaveCount(0);
   await page.getByRole('button', { name: '로그인 · 연동 →' }).click();
+  await expect(page.getByRole('heading', { name: 'Orca 패치 누락 감시', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '감시 설치·상태 재확인' })).toBeEnabled();
   await page.getByRole('button', { name: '로그인', exact: true }).first().click();
   await expect(page.getByText('연결 확인됨', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '설치 완료 확인' })).toBeDisabled();

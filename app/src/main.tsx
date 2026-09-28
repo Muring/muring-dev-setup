@@ -285,7 +285,7 @@ function App() {
         <div className="aside-bottom">
           WINDOWS + UBUNTU
           <br />
-          <small>MuRing · 설치 마법사 0.1.9</small>
+          <small>MuRing · 설치 마법사 0.1.10</small>
         </div>
       </aside>
       <main>
@@ -507,7 +507,7 @@ function App() {
                       ) : null}
                       <p>{item.description}</p>
                       {item.id === 'orca-patch' && !inspection?.patchSupported && (
-                        <small>검증된 Orca 1.4.202 파일이 확인되지 않아 선택할 수 없습니다.</small>
+                        <small>검증된 Orca 1.4.202/1.4.215 파일이 확인되지 않아 선택할 수 없습니다.</small>
                       )}
                       {recommended(item, config) && (
                         <small>
@@ -675,6 +675,19 @@ function App() {
                   </p>
                   <button disabled={busy} onClick={() => action(() => api.run('kb'))}>
                     KB 연결 재시도
+                  </button>
+                </section>
+              )}
+              {config.selected.includes('orca-monitor') && (
+                <section className="card">
+                  <h2>Orca 패치 누락 감시</h2>
+                  <p>
+                    로그인 시와 5분마다 패치 상태를 확인합니다. 누락되거나 검증되지 않은 버전이면 알리며, 앱을
+                    자동 수정하거나 종료하지 않습니다.
+                  </p>
+                  <p>이 항목의 완료는 감시 설치 완료를 뜻합니다. Orca 패치 적용 여부는 별도로 확인하세요.</p>
+                  <button disabled={busy} onClick={() => action(() => api.run('orca-monitor'))}>
+                    감시 설치·상태 재확인
                   </button>
                 </section>
               )}

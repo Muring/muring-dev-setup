@@ -24,6 +24,7 @@ with tempfile.TemporaryDirectory() as temporary:
         states={e['step']:e['status'] for e in events}
         assert result == (1 if failures else 0), events
         assert states['orca-patch']=='skipped'
+        assert states['orca-monitor']=='skipped'
         assert states['shell-replace']=='skipped'
         if 'base' in failures:
             assert not any(mode=='apply' and item!='base' for item,mode in calls)
@@ -45,3 +46,15 @@ with tempfile.TemporaryDirectory() as temporary:
     assert execute(config,file,step='kb',executor=lambda item,mode:calls.append((item,mode)) or 0)==0
     assert all(mode=='check' for _,mode in calls)
     print('PASS: single-step retry rechecks dependencies')
+
+    monitor = validate({**defaults(), 'selected': ['base', 'orca-monitor']})
+    file = root/'monitor.jsonl'; calls=[]; installed=set()
+    def monitor_command(item, mode):
+        calls.append((item, mode))
+        if mode == 'check': return 0 if item in installed else 1
+        installed.add(item); return 0
+    assert execute(monitor, file, executor=monitor_command) == 0
+    assert ('orca-monitor', 'apply') in calls
+    assert not any(item in ('orca', 'orca-patch') for item, _ in calls)
+    assert calls.index(('base', 'apply')) < calls.index(('orca-monitor', 'apply'))
+    print('PASS: opt-in monitor installs independently of Orca skills and patch')

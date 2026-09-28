@@ -280,10 +280,24 @@
   },
   {
     "id": "orca-patch",
-    "title": "Orca 1.4.202 이름 생성 패치",
+    "title": "Orca 1.4.202/1.4.215 이름 생성 패치",
     "description": "검증된 파일에만 적용합니다. Orca를 완전히 종료해야 합니다.",
     "depends": [
       "orca"
+    ],
+    "defaults": {
+      "muring": false,
+      "common": false
+    },
+    "recommend": "never",
+    "required": false
+  },
+  {
+    "id": "orca-monitor",
+    "title": "Orca 패치 누락 감시",
+    "description": "로그인 시와 5분마다 패치 상태를 확인해 알립니다. Orca를 자동 수정하거나 종료하지 않습니다.",
+    "depends": [
+      "base"
     ],
     "defaults": {
       "muring": false,
