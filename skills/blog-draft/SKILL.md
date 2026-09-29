@@ -146,11 +146,20 @@ Claude Code 에는 이미지 생성 도구가 없다. Claude 에서 실행 중�
    그대로 두고 **구성 부분만 이번 글 주제로** 바꾼다.
 2. `image_gen` 으로 한 장 만들고 `<slug>.png` 와 `<slug>-prompt.json`(사용한 프롬프트·참조 파일)을 같은 폴더에 둔다.
 3. 올리기 전에 사용자에게 이미지를 보여 주고 확인을 받는다. 마음에 안 들면 프롬프트만 바꿔 다시 만든다.
-4. 확인되면 `publish.mjs` 의 업로드 방식대로 올린다 — 경로는 `thumbnails/<slug>/illustration-<sha256 앞 12자리>.png`,
-   `upsert: false`, 올린 뒤 공개 URL 을 받아와 바이트가 같은지 확인. **`publish.mjs` 는 1~7편 slug 가 박혀 있는
+4. 확인되면 **올릴 파일을 JPEG 로 줄인다.** `image_gen` PNG 는 1672×941·약 1.7MB 인데, 가장 크게 쓰이는 곳이
+   카드(2x 에서 828px)와 OG(360px 정사각)라 1200px 이면 충분하고 JPEG q82 로 약 70KB 가 된다(눈으로 구분 안 됨).
+   **WebP 는 쓰지 않는다** — OG 이미지를 그리는 satori 가 WebP 를 못 읽어 `opengraph-image` 가 실패한다.
+   원본 PNG 는 폴더에 그대로 두고, 저장소 루트에서 변환한다.
+
+   ```bash
+   cd "$MUBLOG" && node -e 'require("sharp")(process.argv[1]).resize({width:1200,withoutEnlargement:true}).jpeg({quality:82,mozjpeg:true}).toFile(process.argv[2]).then(i=>console.log(i.width+"x"+i.height, i.size+"B"))' \
+     output/imagegen/blog-development-thumbnails/<slug>.png output/imagegen/blog-development-thumbnails/<slug>.jpg
+   ```
+5. 그 `.jpg` 를 `publish.mjs` 의 업로드 방식대로 올린다 — 경로는 `thumbnails/<slug>/illustration-<sha256 앞 12자리>.jpg`
+   (해시도 `.jpg` 바이트로), `contentType: "image/jpeg"`, `upsert: false`, 올린 뒤 공개 URL 을 받아와 바이트가 같은지 확인. **`publish.mjs` 는 1~7편 slug 가 박혀 있는
    일회성 스크립트**라 그대로 돌리지 말고, 업로드 부분만 이번 slug 로 쓴다. 새 초안은 아직 DB 에 없으므로 posts
    UPDATE 는 하지 않는다.
-5. 받은 공개 URL 을 프론트매터 `thumbnail:` 에 넣는다. 그다음 5번 등록으로 간다.
+6. 받은 공개 URL 을 프론트매터 `thumbnail:` 에 넣는다. 그다음 5번 등록으로 간다.
 
 비밀값(`SUPABASE_SECRET_KEY`, `DATABASE_URL`)은 `.env.local` 에서 읽기만 하고 출력·복사하지 않는다.
 
