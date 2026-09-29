@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$installer = (Resolve-Path (Join-Path $PSScriptRoot '../../windows/install-orca-auto.ps1')).Path
+$installer = (Resolve-Path (Join-Path $PSScriptRoot '../../windows/install-orca-auto.ps1')).ProviderPath
 $task = 'MuRing-Orca-Auto-Test-' + [guid]::NewGuid().ToString('N')
 $root = Join-Path ([IO.Path]::GetTempPath()) $task
 $directory = Join-Path $root 'installed space'
@@ -21,6 +21,16 @@ try {
   while (-not (Test-Path $statePath) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
   if ((Get-Content $statePath -Raw | ConvertFrom-Json).status -ne 'not-installed') { throw 'Controller did not run using bundled runtime' }
   $firstPid = [int](Get-Content (Join-Path $directory 'state/controller.lock'))
+  $installedTask = Get-ScheduledTask -TaskName $task
+  if ($installedTask.Triggers.Count -ne 1 -or $installedTask.Triggers[0].Repetition.Interval) { throw 'Unexpected periodic restart trigger' }
+  $launcher = [IO.File]::ReadAllBytes((Join-Path $directory 'launcher.exe'))
+  $peOffset = [BitConverter]::ToInt32($launcher, 60)
+  if ([BitConverter]::ToUInt16($launcher, $peOffset + 24 + 68) -ne 2) { throw 'Launcher must use the Windows GUI subsystem' }
+  if ((Get-Process -Id $firstPid).MainWindowHandle -ne [IntPtr]::Zero) { throw 'Controller has a visible window' }
+  # An installation with the old periodic watchdog must fail verification and be migrated.
+  $legacy = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
+  Set-ScheduledTask -TaskName $task -Trigger @($installedTask.Triggers[0], $legacy) | Out-Null
+  Run 1 '-Check'
   Run 0 ''
   Run 0 '-Check'
   if (Get-Process -Id $firstPid -ErrorAction SilentlyContinue) { throw 'Previous controller still running after reinstall' }
@@ -37,7 +47,7 @@ try {
   Run 0 '-Check'
   Run 0 '-Remove'
   Run 1 '-Check'
-  Write-Host 'PASS: no external Node, running scheduled task, reinstall stops owned controller, disabled/stale detection and repair, removal.'
+  Write-Host 'PASS: no external Node, GUI launcher, logon-only task, periodic-trigger migration, reinstall stops owned controller, disabled/stale detection and repair, removal.'
 } finally {
   Run 0 '-Remove'
   if (Test-Path $root) { Remove-Item $root -Recurse -Force }

@@ -54,12 +54,15 @@ class Controller {
     if (child.status === 0) { this.notified = result.sha256; this.status(result); }
   }
   async tick() {
-    if (!fs.existsSync(this.target)) { this.seen = null; this.pending = null; return this.status({ status: 'not-installed' }); }
+    if (!fs.existsSync(this.target)) {
+      this.seen = null; this.pending = null;
+      return this.last?.status === 'not-installed' ? this.last : this.status({ status: 'not-installed' });
+    }
     const stamp = signature(this.target);
     if ((this.stableMs ?? 3000) > 0 && Date.now() - fs.statSync(this.target).mtimeMs < (this.stableMs ?? 3000)) return this.status({ status: 'updating' });
     if (this.pending && this.seen !== stamp) { this.discardPending(); this.seen = null; }
     if (this.seen === stamp && !this.pending && this.cached) {
-      const result = this.status(this.cached); this.notify(result); return result;
+      this.notify(this.last); return this.last;
     }
     if (this.pending) return this.applyPending();
     let sourceHash;

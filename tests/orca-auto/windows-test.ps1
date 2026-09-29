@@ -1,5 +1,5 @@
 ﻿$ErrorActionPreference = 'Stop'
-$node = (Resolve-Path (Join-Path $PSScriptRoot '../../windows/orca-auto/runtime/node.exe')).Path
+$node = (Resolve-Path (Join-Path $PSScriptRoot '../../windows/orca-auto/runtime/node.exe')).ProviderPath
 $root = Join-Path ([IO.Path]::GetTempPath()) ('muring-auto-test-' + [guid]::NewGuid())
 $app = Join-Path $root 'app space'
 $state = Join-Path $root 'state'

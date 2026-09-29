@@ -2,7 +2,7 @@
 
 설치 화면의 **Orca 자동 재패치**를 선택한다. 기본 선택은 해제되어 있다. EXE에 포함된 엔진, 검증 데이터, 전용 Windows Node 런타임을 현재 사용자의 `%LOCALAPPDATA%\MuRingDevSetup\OrcaAutoPatch`에 복사한다. Git clone이나 별도 Windows Node 설치는 필요 없다. 소스에서 직접 실행할 때만 `python3 windows/prepare-orca-runtime.py`로 빌드용 런타임을 준비한다.
 
-현재 사용자의 `MuRing-Orca-WSL-AutoPatch` 예약 작업이 로그인 및 매 1분에 실행을 확인한다. 중복 실행을 막으며 상주 컨트롤러는 5초마다 변경을 검사한다. 공식 Orca 자동 업데이트는 유지한다. 기본 대상은 `%LOCALAPPDATA%\Programs\orca`이다.
+현재 사용자의 `MuRing-Orca-WSL-AutoPatch` 예약 작업은 로그인 때 한 번 실행하며, 설치 직후에도 한 번 시작한다. 1분 반복 실행은 등록하지 않는다. 설치 시 Windows에 포함된 .NET 컴파일러로 콘솔 창을 만들지 않는 실행기를 생성한다. 중복 실행을 막으며 상주 컨트롤러는 5초마다 파일 변경 여부만 확인한다. 시작 시 현재 파일을 한 번 확인하고, 이후에는 업데이트로 파일이 변경됐을 때만 검사·재패치한다. 변경이 없으면 상태 파일도 다시 쓰지 않는다. 업데이트 중이거나 파일이 잠겨 있으면 안정화·잠금 해제를 기다린다. 감시 프로그램을 직접 종료하면 다음 로그인 또는 재설치 전까지 다시 시작하지 않는다. 공식 Orca 자동 업데이트는 유지한다. 기본 대상은 `%LOCALAPPDATA%\Programs\orca`이다.
 
 ## 적용 조건
 

@@ -31,11 +31,26 @@ test('automatic application, receipt recognition, successive update, backup and 
     const original = fixture(); install(root, original);
     const c = controller(root); assert.equal((await c.tick()).status, 'patched');
     assert.deepEqual(fs.readFileSync(c.last.backup), original);
+    const firstStatus = c.last;
+    const stateStamp = fs.statSync(c.stateFile).mtimeMs;
+    assert.equal(await c.tick(), firstStatus);
+    assert.equal(fs.statSync(c.stateFile).mtimeMs, stateStamp);
     assert.equal((await controller(root).tick()).status, 'patched');
     const next = fixture('1.4.1000'); install(root, next);
     assert.equal((await c.tick()).status, 'patched'); assert.equal(c.last.version, '1.4.1000');
     assert.equal(fs.readdirSync(path.join(root, 'state/backups')).length, 2);
     assert.equal(c.restore().status, 'restored'); assert.deepEqual(fs.readFileSync(c.target), next);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+test('unchanged missing app does not rewrite status on each poll', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'muring-absent-'));
+  try {
+    const c = controller(root);
+    const first = await c.tick();
+    assert.equal(first.status, 'not-installed');
+    assert.equal(await c.tick(), first);
+    install(root, fixture());
+    assert.equal((await c.tick()).status, 'patched');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 test('pending patch never overwrites a newer update', async () => {
