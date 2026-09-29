@@ -320,7 +320,7 @@ function App() {
         <div className="aside-bottom">
           WINDOWS + UBUNTU
           <br />
-          <small>MuRing · 설치 마법사 0.1.12</small>
+          <small>MuRing · 설치 마법사 0.1.13</small>
         </div>
       </aside>
       <main>
