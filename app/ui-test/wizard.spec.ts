@@ -70,6 +70,7 @@ test.beforeEach(async ({ page, startupFailure }) => {
         },
         run: async (target?: string) => {
           (window as any).installerRan = true;
+          (window as any).lastRunTarget = target;
           state.events = state.config.selected.map((step: string) => ({
             step,
             status: step === 'kb' && !target ? 'action-required' : 'completed',
@@ -155,14 +156,14 @@ for (const startupFailure of ['snapshot', 'catalog']) {
       await expect(page.getByRole('heading', { name: '환경 확인', exact: true })).toBeVisible();
       await expect.poll(() => page.evaluate(() => (window as any).startupCalls.snapshot)).toBeGreaterThan(3);
       await page.getByRole('button', { name: '설치 구성 선택 →' }).click();
-      await expect(page.getByRole('checkbox')).toHaveCount(23);
+      await expect(page.getByRole('checkbox')).toHaveCount(24);
       expect(await page.evaluate(() => (window as any).installerRan)).toBeUndefined();
     });
   });
 }
 test('recommended choices preserve existing config and dependency deselection cascades', async ({ page }) => {
   await page.getByRole('button', { name: '설치 구성 선택 →' }).click();
-  await expect(page.getByRole('checkbox')).toHaveCount(23);
+  await expect(page.getByRole('checkbox')).toHaveCount(24);
   const autoPatch = page.getByRole('checkbox', { name: 'Orca 자동 재패치', exact: false });
   await expect(autoPatch).not.toBeChecked();
   await autoPatch.check();
@@ -404,4 +405,21 @@ test('rail collapses to a strip and reopens when a new task starts', async ({ pa
   await page.getByRole('button', { name: '환경 확인 / 새로고침' }).click();
   await expect(rail).toHaveClass(/open/);
   await page.screenshot({ path: 'test-results/rail.png' });
+});
+
+test('Orca Codex shutdown guidance and independent retry', async ({ page }) => {
+  await page.getByRole('button', { name: '설치 구성 선택 →' }).click();
+  await page.getByRole('button', { name: '변경 내용 확인 →' }).click();
+  await page.getByRole('button', { name: '선택한 항목 설치 시작' }).click();
+  await page.evaluate(() => {
+    const state = (window as any).testState;
+    state.events.find((e: any) => e.step === 'orca-codex').status = 'action-required';
+  });
+  await page.getByRole('button', { name: '로그인 · 연동 →' }).click();
+  const card = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Orca Codex 실행 설정', exact: true }) });
+  await expect(card.getByText(/Orca를 완전히 종료한 뒤 적용하세요/)).toBeVisible();
+  await card.getByRole('button', { name: 'Codex 실행 설정 적용·확인' }).click();
+  expect(await page.evaluate(() => (window as any).lastRunTarget)).toBe('orca-codex');
 });

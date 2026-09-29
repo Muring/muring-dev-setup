@@ -320,7 +320,7 @@ function App() {
         <div className="aside-bottom">
           WINDOWS + UBUNTU
           <br />
-          <small>MuRing · 설치 마법사 0.1.13</small>
+          <small>MuRing · 설치 마법사 0.1.14</small>
         </div>
       </aside>
       <main>
@@ -739,6 +739,20 @@ function App() {
                   <p>이 항목의 완료는 감시 설치 완료를 뜻합니다. Orca 패치 적용 여부는 별도로 확인하세요.</p>
                   <button disabled={busy} onClick={() => action(() => api.run('orca-monitor'))}>
                     감시 설치·상태 재확인
+                  </button>
+                </section>
+              )}
+              {config.selected.includes('orca-codex') && (
+                <section className="card">
+                  <h2>Orca Codex 실행 설정</h2>
+                  <p>
+                    Orca를 완전히 종료한 뒤 적용하세요. 설정을 백업하고 새 Codex 실행에 --no-daemon을
+                    적용합니다. 실행 중인 세션을 강제 종료하지 않습니다.
+                  </p>
+                  <p>사용자 지정 명령은 자동 변경하지 않습니다. 자세한 안내는 실행 로그를 확인하세요.</p>
+                  {orcaInstallButton}
+                  <button disabled={busy} onClick={() => action(() => api.run('orca-codex'))}>
+                    Codex 실행 설정 적용·확인
                   </button>
                 </section>
               )}

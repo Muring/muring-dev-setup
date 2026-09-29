@@ -42,6 +42,9 @@ check() {
       for skill in computer-use orca-cli orchestration; do
         [[ -f "$HOME/.agents/skills/$skill/SKILL.md" || -f "$HOME/.claude/skills/$skill/SKILL.md" ]] || return 20
       done ;;
+    orca-codex)
+      codex --help 2>/dev/null | grep -F -- '--no-daemon' >/dev/null || return 20
+      powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/configure-orca-codex.ps1")" -Check ;;
     orca-auto) powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/install-orca-auto.ps1")" -Check >/dev/null ;;
     orca-monitor) powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/install-orca-wsl-monitor.ps1")" -Check >/dev/null ;;
     orca-patch) powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/check-orca.ps1")" -Patched >/dev/null ;;
@@ -82,6 +85,12 @@ apply() {
       command -v orca-ide >/dev/null 2>&1 || return 20
       timeout --foreground 120s orca-ide skills install --skill computer-use --skill orca-cli --skill orchestration || true
       check ;;
+    orca-codex)
+      if ! codex --help 2>/dev/null | grep -F -- '--no-daemon' >/dev/null; then
+        printf '%s\n' 'Codex를 --no-daemon 지원 버전으로 업데이트한 뒤 재시도하세요.'
+        return 20
+      fi
+      timeout --foreground 120s powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/configure-orca-codex.ps1")" ;;
     orca-auto) timeout --foreground 120s powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/install-orca-auto.ps1")" ;;
     orca-monitor) timeout --foreground 120s powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/install-orca-wsl-monitor.ps1")" ;;
     orca-patch) timeout --foreground 180s powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w "$ROOT/../windows/fix-orca-wsl-rename.ps1")" ;;

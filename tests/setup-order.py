@@ -11,7 +11,7 @@ from lib.config import defaults, validate
 with tempfile.TemporaryDirectory() as temporary:
     root = Path(temporary)
     config = validate(defaults())
-    for label, failures in [('success', {}), ('KB auth', {'kb':20}), ('base failure', {'base':1}), ('Node failure', {'node':1}), ('Orca unavailable', {'orca':20})]:
+    for label, failures in [('success', {}), ('KB auth', {'kb':20}), ('base failure', {'base':1}), ('Node failure', {'node':1}), ('Orca unavailable', {'orca':20}), ('Orca running', {'orca-codex':20})]:
         calls=[]; installed=set()
         def command(item, mode):
             calls.append((item,mode))
@@ -67,3 +67,12 @@ with tempfile.TemporaryDirectory() as temporary:
     assert not any(item in ('node', 'orca', 'orca-patch', 'orca-monitor') for item, _ in calls)
     assert calls.index(('base', 'apply')) < calls.index(('orca-auto', 'apply'))
     print('PASS: auto-patch installs without external Node or Orca skill prerequisites')
+
+    codex = validate({**defaults(), 'selected': ['base', 'node', 'codex', 'orca-codex']})
+    file = root/'codex-retry.jsonl'; calls=[]
+    assert execute(codex, file, step='orca-codex', executor=lambda item,mode:calls.append((item,mode)) or (20 if item=='orca-codex' else 0))==1
+    events=[json.loads(line) for line in file.read_text().splitlines()]
+    assert any(e['step']=='orca-codex' and e['status']=='action-required' and 'Orca 종료' in e['message'] for e in events)
+    assert ('orca-codex','apply') in calls
+    assert not any(mode=='apply' and item!='orca-codex' for item,mode in calls)
+    print('PASS: Orca Codex shutdown wait and independent retry')

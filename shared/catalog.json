@@ -279,6 +279,20 @@
     "required": false
   },
   {
+    "id": "orca-codex",
+    "title": "Orca Codex 실행 설정",
+    "description": "Orca 종료 후 설정을 백업하고 새 Codex 실행에 --no-daemon을 적용합니다. 기존 세션과 사용자 지정 명령을 보존합니다.",
+    "depends": [
+      "codex"
+    ],
+    "defaults": {
+      "muring": true,
+      "common": false
+    },
+    "recommend": "muring",
+    "required": false
+  },
+  {
     "id": "orca-patch",
     "title": "Orca 1.4.202/1.4.215 이름 생성 패치",
     "description": "검증된 파일에만 적용합니다. Orca를 완전히 종료해야 합니다.",

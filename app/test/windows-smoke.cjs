@@ -10,7 +10,7 @@ const assert = require('node:assert/strict');
     .find(p => p.url().startsWith('file:'));
   assert(page, 'App page missing');
   assert.equal(await page.title(), 'MuRing Dev Setup');
-  await page.getByText('MuRing · 설치 마법사 0.1.13', { exact: true }).waitFor();
+  await page.getByText('MuRing · 설치 마법사 0.1.14', { exact: true }).waitFor();
   const errors = [];
   page.on('pageerror', error => errors.push(String(error)));
   await page.getByRole('heading', { name: '환경 확인', exact: true }).waitFor();
@@ -36,7 +36,7 @@ const assert = require('node:assert/strict');
       error: state.inspection.error,
     };
   });
-  assert.equal(result.catalog, 23);
+  assert.equal(result.catalog, 24);
   assert.equal(result.supported, true);
   assert.equal(result.wsl, true);
   assert.equal(result.linux, true, result.error);
@@ -51,7 +51,11 @@ const assert = require('node:assert/strict');
   assert.deepEqual(errors, []);
   await page.getByRole('button', { name: '설치 구성 선택 →' }).click();
   await page.getByRole('heading', { name: '설치 구성', exact: true }).waitFor();
-  assert.equal(await page.getByRole('checkbox').count(), 23);
+  assert.equal(await page.getByRole('checkbox').count(), 24);
+  assert.equal(
+    await page.getByRole('checkbox', { name: 'Orca Codex 실행 설정', exact: false }).isChecked(),
+    true,
+  );
   const autoPatch = page.getByRole('checkbox', { name: 'Orca 자동 재패치', exact: false });
   assert.equal(await autoPatch.isChecked(), false);
   assert.equal(await autoPatch.isEnabled(), true);

@@ -73,3 +73,22 @@ test('completion requires installed items, authentication and connection review'
   assert(workflowAccess(config, s, '', true)[5]);
   assert(!workflowAccess({ ...config, selected: ['base'] }, s, '', true)[3]);
 });
+
+test('Orca Codex waiting for shutdown can advance to connections and retry', () => {
+  const s = state();
+  const c = { ...config, selected: ['base', 'node', 'codex', 'orca-codex'] };
+  s.config = c;
+  s.events = c.selected.map(step => ({
+    step,
+    status: step === 'orca-codex' ? 'action-required' : 'completed',
+    version: 1,
+    time: 1,
+    message: '',
+  }));
+  s.events.push({ step: '_run', status: 'incomplete', version: 1, time: 1, message: '' });
+  assert(workflowAccess(c, s, '', false)[4]);
+  assert(!workflowAccess(c, s, '', true)[5]);
+  s.events.find(e => e.step === 'orca-codex')!.status = 'completed';
+  s.inspection!.linux!.auth.codex = true;
+  assert(workflowAccess(c, s, '', true)[5]);
+});

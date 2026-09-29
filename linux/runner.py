@@ -88,7 +88,7 @@ def execute(config, event_path, step=None, check_only=False, executor=None):
             if rc == 0:
                 event(identity, 'completed', '실제 상태 확인 완료')
             elif rc == 20:
-                event(identity, 'action-required', '로그인·앱 설치·브리지 연결 후 재시도하세요.')
+                event(identity, 'action-required', 'Orca 종료 후 재시도하세요. 사용자 지정 명령·지원 버전 안내는 로그를 확인하세요.' if identity == 'orca-codex' else '로그인·앱 설치·브리지 연결 후 재시도하세요.')
             elif rc == 21:
                 event(identity, 'reboot-required', 'WSL 재시작 후 재시도하세요.')
             else:

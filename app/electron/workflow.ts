@@ -28,7 +28,7 @@ export function workflowAccess(
   const started = environment && !!run;
   const ended = !!run && ['completed', 'incomplete'].includes(run.status) && !snapshot.busy;
   // These tasks require the account/app connection screen to finish.
-  const connectionTasks = ['kb', 'orca', 'orca-patch'];
+  const connectionTasks = ['kb', 'orca', 'orca-codex', 'orca-patch'];
   const readyForConnections =
     started &&
     ended &&
