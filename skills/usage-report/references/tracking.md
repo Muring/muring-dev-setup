@@ -71,3 +71,9 @@ KB CLI는 수집 설정이 해당 KB를 가리킬 때만 검색 방식·결과 �
 정기 수집의 월별 크기 기록은 로컬 상태에, 일별 크기 기록은 기기 데이터의 `storage/`에 남는다. Git 크기는 같은 저장소의 다른 브랜치 자료도 포함한다. 초기 4주 증가량을 확보하기 전 연간 크기를 확정하지 않는다. Git에서 파일을 지워도 과거 이력의 공간은 회수되지 않는다.
 
 세부 토큰 필드의 `observed_fields`와 보고서의 `field_observation_counts`는 누락된 추론/캐시 필드를 실제 0과 구분한다. 합계는 관측된 값의 합이며 미관측 항목의 전체 사용량을 추정하지 않는다.
+
+## 블로그 집계 내보내기
+
+`usage_publish.py --worktree <usage-data checkout> --revision <전체 source SHA> --sequence <증가하는 작업 순번> --output <임시 JSON> --improvements <개선 기록 JSON>`은 기존 집계 함수를 호출해 블로그용 연도별 요약을 생성한다. 세션 키·원문 로그·명령 인수는 전송하지 않는다. 새 수집이나 AI 호출은 하지 않는다.
+
+`--send`는 명시적으로 연결한 HTTPS `AI_USAGE_INGEST_URL`과 비밀 환경변수 `AI_USAGE_INGEST_KEY`를 사용한다. private KB의 예약 workflow가 실행하며 일반 로컬 수집기에 자동 전송을 추가하지 않는다. schema/metrics 불일치·원본 무결성 오류는 게시하지 않고 종료한다. 예약 workflow와 배포 설정은 해당 KB·블로그 운영 문서를 따른다. 승인된 HTML 렌더러·양식은 변경하지 않는다.

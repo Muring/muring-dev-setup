@@ -414,3 +414,5 @@ PowerShell 파일은 UTF-8 BOM, 셸 스크립트는 LF를 유지합니다.
 개인 KB 내용, 계정 토큰, 프로젝트 비밀값을 이 public 저장소에 넣지 않습니다.
 
 사용량의 지속 수집·양식 승인·정기 실행·작업 결과 기록은 [usage-report 추적 안내](skills/usage-report/references/tracking.md)를 따릅니다. 설치만으로 타이머가 활성화되지 않습니다.
+
+`usage-report`의 `scripts/usage_publish.py`는 기존 집계를 블로그 대시보드로 내보냅니다. 전송은 `--send`와 별도 HTTPS 수집 API·비밀키가 설정된 환경에서만 실행하며, 로컬 수집 설치만으로 공개하지 않습니다. [연결 절차](skills/usage-report/references/tracking.md#블로그-집계-내보내기)를 참고하세요.
