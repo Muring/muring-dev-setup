@@ -113,6 +113,7 @@ def collect(roots, start, end):
                     usage = message.get('usage')
                     if usage and message.get('id') and message.get('model') != '<synthetic>':
                         model = message.get('model', 'unknown')
+                        effort = d.get('perTurnEffort') or d.get('effort') or 'unknown'
                         key = ('Claude', d.get('requestId'), message['id'])
                         values = dict(input=usage.get('input_tokens', 0) + usage.get('cache_read_input_tokens', 0) + usage.get('cache_creation_input_tokens', 0), cache_read=usage.get('cache_read_input_tokens', 0), cache_write=usage.get('cache_creation_input_tokens', 0), output=usage.get('output_tokens', 0), reasoning=(usage.get('output_tokens_details') or {}).get('thinking_tokens', 0))
                 if key and usage and values['input'] + values['output']:

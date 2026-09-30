@@ -51,6 +51,13 @@ class UsageTests(unittest.TestCase):
    self.assertTrue(all(r['tool']=='Codex' for r in result['roots']));self.assertFalse(result['warnings'])
    self.assertNotEqual(subprocess.run(cmd+['--since','2026-09-14'],capture_output=True).returncode,0)
    self.assertNotEqual(subprocess.run(cmd+['--days','0'],capture_output=True).returncode,0)
+ def test_claude_effort_is_read_per_response(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp)/'proj';p.mkdir();u=dict(input_tokens=5,output_tokens=1)
+   def reply(i,**extra):return dict(timestamp='2026-09-14T00:00:00Z',type='assistant',sessionId='s',requestId=f'r{i}',message=dict(id=f'm{i}',model='claude-x',usage=u),**extra)
+   p.joinpath('s.jsonl').write_text('\n'.join(map(json.dumps,[reply(1,effort='medium',perTurnEffort='high'),reply(2,effort='medium'),reply(3)])))
+   records=usage.collect([('Claude',Path(tmp))],datetime(2026,9,14,tzinfo=timezone.utc),datetime(2026,9,15,tzinfo=timezone.utc))[0]
+   self.assertEqual(sorted(r['effort'] for r in records),['high','medium','unknown'])
  def test_stream_duplicates_boundaries_worktree_and_subagent(self):
   with tempfile.TemporaryDirectory() as tmp:
    root=Path(tmp);c=root/'codex';a=root/'claude';c.mkdir();a.mkdir()
