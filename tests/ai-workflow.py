@@ -18,6 +18,39 @@ verify=module('verify','skills/verify-changes/scripts/verify_changes.py')
 from worktree import snapshot
 
 class UsageTests(unittest.TestCase):
+ def test_diagnostics_redacts_content_and_counts_calls_once(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   path=Path(tmp)/'s.jsonl';t='2026-09-14T01:00:00Z'
+   def row(kind,call,**values):return dict(timestamp=t,type='response_item',payload=dict(type=kind,call_id=call,**values))
+   call=row('custom_tool_call','a',name='exec',input='await tools.exec_command({cmd:"PRIVATE_COMMAND"})')
+   data=[call,call,row('custom_tool_call','b',name='exec',input=call['payload']['input']),row('custom_tool_call_output','a',output=[dict(type='text',text='PRIVATE_OUTPUT'+'x'*8100)]),row('function_call_output','b',output='Warning: truncated output')]
+   path.write_text('\n'.join(json.dumps(x) for x in data))
+   records=[dict(tool='Codex',source=str(path),input=100),dict(tool='Codex',source=str(path),input=200)]
+   warnings=[];d=usage.diagnose(records,datetime(2026,9,14,tzinfo=timezone.utc),datetime(2026,9,15,tzinfo=timezone.utc),warnings)
+   self.assertEqual(d['tool_calls'],2);self.assertEqual(d['repeated_exact_calls']['exec'],1)
+   self.assertEqual(d['outputs_over_8000_chars'],1);self.assertEqual(d['truncation_markers'],1)
+   self.assertEqual(d['nested_tool_mentions']['exec_command'],2)
+   self.assertNotIn('PRIVATE',json.dumps(d));self.assertFalse(warnings)
+ def test_claude_diagnostics_are_supported_by_existing_cli_api(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   path=Path(tmp)/'s.jsonl';t='2026-09-14T01:00:00Z'
+   rows=[dict(timestamp=t,type='assistant',sessionId='s',message=dict(content=[dict(type='tool_use',id='c',name='Read',input=dict(file_path='PRIVATE_PATH'))])),dict(timestamp=t,type='user',sessionId='s',message=dict(content=[dict(type='tool_result',tool_use_id='c',content='PRIVATE_OUTPUT'+'x'*9000,is_error=False)]))]
+   path.write_text('\n'.join(map(json.dumps,rows)))
+   import sys
+   sys.path.insert(0,str(ROOT/'skills/usage-report/scripts'))
+   warnings=[];result=usage.diagnose([dict(tool='Claude',source=str(path),input=10)],datetime(2026,9,14,tzinfo=timezone.utc),datetime(2026,9,15,tzinfo=timezone.utc),warnings)
+   self.assertEqual(result['tool_calls'],1);self.assertEqual(result['outputs_over_8000_chars'],1)
+   self.assertNotIn('PRIVATE',json.dumps(result));self.assertFalse(warnings)
+ def test_cli_rolling_days_filters_tool_before_scan(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);p=root/'.codex/sessions';p.mkdir(parents=True)
+   p.joinpath('s.jsonl').write_text(json.dumps(dict(timestamp='2026-09-14T00:00:00Z',type='token_usage_record',payload=dict(response_id='one',usage=dict(input_tokens=7,output_tokens=3)))))
+   cmd=[sys.executable,str(ROOT/'skills/usage-report/scripts/usage_report.py'),'--home',str(root),'--config',str(root/'unused.json'),'--tool','codex','--days','7','--until','2026-09-20T00:00:00+00:00','--json']
+   result=json.loads(subprocess.check_output(cmd,text=True))
+   self.assertEqual(result['totals']['total'],10);self.assertEqual(result['period']['since'],'2026-09-13T00:00:00+00:00')
+   self.assertTrue(all(r['tool']=='Codex' for r in result['roots']));self.assertFalse(result['warnings'])
+   self.assertNotEqual(subprocess.run(cmd+['--since','2026-09-14'],capture_output=True).returncode,0)
+   self.assertNotEqual(subprocess.run(cmd+['--days','0'],capture_output=True).returncode,0)
  def test_stream_duplicates_boundaries_worktree_and_subagent(self):
   with tempfile.TemporaryDirectory() as tmp:
    root=Path(tmp);c=root/'codex';a=root/'claude';c.mkdir();a.mkdir()

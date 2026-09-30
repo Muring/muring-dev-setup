@@ -119,7 +119,7 @@ Claude에서는 `/명령`, Codex에서는 `$명령`으로 같은 원본을 호�
 |---|---|
 | `code-audit` | 프로젝트 **전체 코드**를 11개 관점에서 점검. 변경분 검사로 축소하지 않음 |
 | `verify-changes` | `.agent-checks.json`에 따라 변경 후 기존 회귀 검사 실행. 요약과 상세 로그 경로 반환 |
-| `usage-report` | 로컬 Codex·Claude 사용량을 기간·프로젝트·세션별 집계. 과금/한도 조회와 구분 |
+| `usage-report` | 로컬 Codex·Claude 집계, 여러 기기 증분 수집·데이터 전용 동기화·승인된 HTML. 과금/한도 조회와 구분 |
 | `wait-deploy` | 기존 GitHub 배포·CI 상태를 backoff로 대기. push나 배포 실행 없음 |
 | `session-brief` | 결정·검증·남은 일과 worktree 상태를 짧게 인계 |
 | `shopify-pdp` | PDP 제작 도구. 변경 섹션 검증과 짧은 결과 출력 지원 |
@@ -136,6 +136,8 @@ python3 /path/to/dev-bootstrap/skills/wait-deploy/scripts/wait_deploy.py --conte
 ```
 
 사용량 조회의 기본 기간은 KST 월요일부터 현재까지이며 `--since`, `--until`(종료 제외), `--timezone`으로 조정합니다. `--home`을 반복해 WSL/Windows 로그를 함께 읽거나 `~/.config/ai-workflow/usage.json`에 `{"homes":["/home/me","/mnt/c/Users/Me"]}`를 저장합니다. 대화 원문·인증 파일을 출력하거나 외부로 전송하지 않습니다. 누락된 로그와 누적값 기준 누락은 warnings로 알리며 청구 전체 사용량을 보장하지 않습니다.
+
+최근 7일의 Codex만 분석하려면 `--tool codex --days 7 --diagnostics --by project,model,day,session --json`을 사용합니다. 진단은 입력 크기, 큰 도구 출력의 문자 수, 잘림 표시, 동일 호출 반복을 집계하며 명령·출력 원문은 보고서에 포함하지 않습니다. 반복 호출에는 필요한 대기·재검증도 포함되므로 자동으로 낭비나 절감률로 해석하지 않습니다.
 
 `verify-changes`는 기본적으로 실행 계획만 보여주고 `--run`에서 설정의 argv를 실행합니다. `--all`도 등록된 회귀 검사 전체를 뜻하며 전체 코드 감사가 아닙니다. 기존 통과 결과를 캐시하지 않습니다. UI 검증은 대상 URL·worktree·인증 상태를 맞추고 기존 Orca 탭을 우선 사용합니다.
 
@@ -410,3 +412,5 @@ Orca 설치 파일의 실제 다운로드·체크섬 검증을 확인했습니�
 
 PowerShell 파일은 UTF-8 BOM, 셸 스크립트는 LF를 유지합니다.
 개인 KB 내용, 계정 토큰, 프로젝트 비밀값을 이 public 저장소에 넣지 않습니다.
+
+사용량의 지속 수집·양식 승인·정기 실행·작업 결과 기록은 [usage-report 추적 안내](skills/usage-report/references/tracking.md)를 따릅니다. 설치만으로 타이머가 활성화되지 않습니다.
