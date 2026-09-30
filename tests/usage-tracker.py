@@ -153,6 +153,10 @@ class StoreTests(unittest.TestCase):
         report=store.aggregate(self.cfg['worktree']);self.assertEqual(report['quality']['ambiguous_task_responses'],1)
         self.assertEqual(sum(t['totals']['input'] for t in report['tasks']),0)
         self.assertEqual(report['weeks'][-1]['task_states']['unclassified']['input'],100)
+    def test_task_rejects_text_longer_than_blog_limit(self):
+        path=self.root/'task.json'
+        path.write_text(json.dumps(dict(id='issue-42',project='muring/demo',sessions=[],status='completed',verification=[dict(name='x'*301,result='pass')])))
+        with self.assertRaisesRegex(ValueError,'300 characters'):tracker.record_task(self.cfg,path)
     def test_same_issue_id_different_project_is_not_a_conflict(self):
         self.source();s,q=store.scan(self.cfg);store.publish(self.cfg,s,q)
         base=Path(self.cfg['worktree'])/'devices/test/tasks'

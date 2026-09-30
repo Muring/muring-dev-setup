@@ -217,6 +217,9 @@ def record_task(config, source):
     checks = data.get('verification')
     if checks is not None and (not isinstance(checks, list) or any(not isinstance(c, dict) or set(c) != {'name','result'} or c['result'] not in ('pass','fail','not_run','unknown') for c in checks)):
         raise ValueError('verification must list {name, result: pass|fail|not_run|unknown}')
+    # The blog ingest rejects the whole export when a published task text exceeds 300 characters.
+    if any(isinstance(v, str) and len(v) > 300 for v in [data.get('type')] + [c['name'] for c in checks or []]):
+        raise ValueError('task type and verification names must be 300 characters or fewer')
     if data['status'] not in ('completed', 'partial', 'in_progress', 'stopped'):
         raise ValueError('invalid task status')
     if not isinstance(data.get('sessions'), list) or any(not re.fullmatch('[0-9a-f]{64}', s) for s in data['sessions']):
