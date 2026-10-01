@@ -1,6 +1,8 @@
 {
   "version": 1,
   "checks": [
+    {"name":"usage-tracker","command":["python3","tests/usage-tracker.py","-q"],"paths":["skills/usage-report/*","tests/usage-tracker.py"],"timeout":120},
+    {"name":"usage-publish","command":["python3","tests/usage-publish.py","-q"],"paths":["skills/usage-report/*","tests/usage-publish.py"],"timeout":120},
     {"name":"ai-workflow","command":["python3","tests/ai-workflow.py","-q"],"paths":["skills/*","tests/ai-workflow.py"],"timeout":120},
     {"name":"content-update","command":["python3","tests/content-update.py","-q"],"paths":["skills/*","commands/*","linux/lib/content.py","tests/content-update.py"],"timeout":120},
     {"name":"pdp-verify","command":["node","tests/pdp-verify.mjs"],"paths":["skills/shopify-pdp/*","tests/pdp-verify.mjs"],"timeout":120},

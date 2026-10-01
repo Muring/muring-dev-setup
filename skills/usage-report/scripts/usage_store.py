@@ -142,10 +142,41 @@ def observations(tool, path, start, end):
             result[key] = event
     return list(result.values()), warnings
 
-def normalize(r, projects):
-    project = projects.get(r['cwd'], projects.get(r['project'], 'unmapped'))
+def resolve_project(cwd, projects):
+    """Explicit absolute ancestors win, longest first; basename is a fallback."""
+    def canonical(value):
+        value = value.replace('\\', '/').rstrip('/')
+        return value.casefold() if re.match(r'^[A-Za-z]:/', value) else value
+    path = canonical(cwd)
+    matches = [(len(canonical(root)), alias) for root, alias in projects.items()
+               if (root.startswith('/') or re.match(r'^[A-Za-z]:[/\\]', root))
+               and (path == canonical(root) or path.startswith(canonical(root) + '/'))]
+    project = max(matches)[1] if matches else projects.get(cwd, projects.get(legacy.project(cwd), 'unmapped'))
     if not re.fullmatch(r'[a-zA-Z0-9_.\-/]{1,120}', project) or '..' in project:
         raise ValueError('invalid project identifier')
+    return project
+
+def valid_interval(interval):
+    if not isinstance(interval, dict) or set(interval) != {'session', 'project', 'since', 'until'}:
+        return False
+    start, end = legacy.stamp(interval['since']), legacy.stamp(interval['until'])
+    return (isinstance(interval['session'], str) and bool(re.fullmatch('[0-9a-f]{64}', interval['session']))
+            and isinstance(interval['project'], str)
+            and bool(re.fullmatch(r'[a-zA-Z0-9_./-]{1,120}', interval['project'])) and '..' not in interval['project']
+            and start is not None and end is not None and start < end
+            and all(isinstance(interval[k], str) and datetime.fromisoformat(interval[k].replace('Z', '+00:00')).tzinfo is not None
+                    for k in ('since', 'until')))
+
+def task_intervals(task):
+    if 'intervals' in task:
+        return [i for i in task['intervals'] if valid_interval(i)] if isinstance(task['intervals'], list) else []
+    # Legacy unbounded sessions are not evidence of task boundaries.
+    intervals = [dict(session=s, project=task['project'], since=task.get('since'), until=task.get('until'))
+                 for s in task.get('sessions', [])]
+    return [i for i in intervals if valid_interval(i)]
+
+def normalize(r, projects):
+    project = resolve_project(r['cwd'], projects)
     return dict(key=r['request_key'], observed_fields=r.get('observed_fields', []), identity_quality=r['identity_quality'], session=digest([r['tool'], r['session']]),
                 timestamp=legacy.stamp(r['timestamp']).astimezone(timezone.utc).isoformat(),
                 tool=r['tool'], project=project, model=r['model'], effort=r.get('effort', 'unknown'),
@@ -343,16 +374,17 @@ def aggregate(worktree, year=None):
                 task_conflicts.add(key)
             else:
                 tasks[key] = task
+    intervals = {key: task_intervals(task) for key, task in tasks.items()}
     sessions = collections.defaultdict(set)
     for key, task in tasks.items():
         if key not in task_conflicts:
-            for session in task['sessions']:
-                sessions[session].add(key)
+            for interval in intervals[key]:
+                sessions[interval['session']].add(key)
     def linked_tasks(record):
         return {key for key in sessions.get(record['session'], set())
-                if tasks[key]['project'] == record['project'] and
-                (not tasks[key].get('since') or legacy.stamp(tasks[key]['since']) <= legacy.stamp(record['timestamp'])) and
-                (not tasks[key].get('until') or legacy.stamp(record['timestamp']) < legacy.stamp(tasks[key]['until']))}
+                if any(i['session'] == record['session'] and i['project'] == record['project']
+                       and legacy.stamp(i['since']) <= legacy.stamp(record['timestamp']) < legacy.stamp(i['until'])
+                       for i in intervals[key])}
     associations = {r['key']: linked_tasks(r) for r in rows}
     buckets = {}
     for device in devices:
@@ -393,9 +425,11 @@ def aggregate(worktree, year=None):
     for key, task in sorted(tasks.items()):
         members = [r for r in rows if associations[r['key']] == {key}]
         task_summaries.append(dict(task, totals=token_totals(members), conflict=key in task_conflicts,
+                                   linkage='bounded' if intervals[key] else 'unknown',
                                    settings=sorted({(r['tool'], r['model'], r['effort']) for r in members})))
     return dict(schema=SCHEMA, metrics=METRICS, generated_at=now().isoformat(), devices=devices, weeks=weeks,
                 quality=dict(problems=problems, fallback_identities=fallback, task_conflicts=len(task_conflicts), ambiguous_task_responses=sum(len(v)>1 for v in associations.values()), comparison='withheld'),
                 totals=token_totals(rows), field_observation_counts={field:sum(field in r.get('observed_fields', []) for r in rows) for field in FIELDS}, tasks=task_summaries,
                 limitations=['Local observations, not billing or subscription quota.', 'Repeated calls and KB mentions are review signals, not measured waste or savings.',
-                             'Unreported tasks, verification and KB applications remain unknown.'])
+                             'Unreported tasks, verification and KB applications remain unknown.',
+                             'Task totals with unknown linkage are unassigned observations, not measured zero usage.'])

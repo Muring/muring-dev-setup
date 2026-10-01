@@ -10,7 +10,7 @@ python3 <scripts>/usage_tracker.py init --repo /path/to/muring-kb
 
 기본 설정은 `~/.config/ai-workflow/tracking.json`, 상태는 `~/.local/state/ai-workflow/tracking/`, 전용 worktree는 `~/.local/share/usage-sync/`다. `--config`는 하위 명령 앞에 지정한다. 새 기기는 `init`으로 새 기기 ID를 생성한다. 설정 파일을 다른 기기로 복사하여 기기 ID를 재사용하지 않는다. 기존 worktree/등록 경로는 덮어쓰지 않는다.
 
-`projects`에 로컬 cwd 또는 저장소 basename → 공통 프로젝트 ID 매핑을 설정한다. 모르는 경로는 `unmapped`로 남는다. `roots`의 `required=true` 경로 접근 실패는 게시를 보류한다. 도구를 새로 설치하면 해당 경로를 추가하고 `required=true`로 변경한다. Codex/Claude 별도 설정 홈을 사용하는 환경은 실제 로그 경로를 명시한다.
+`projects`에 로컬 절대 경로 또는 저장소 basename → 공통 프로젝트 ID 매핑을 설정한다. 절대 경로는 자기 경로와 하위 경로에 적용하며 가장 긴 일치 경로가 우선한다. 따라서 저장소 아래 별도 앱은 더 구체적인 경로로 분리할 수 있다. 경로 구분자로 경계를 검사하며 Windows 드라이브 경로는 대소문자를 구분하지 않는다. 절대 경로에 일치하지 않을 때만 basename을 쓴다. 실제 경로와 의도한 별칭을 확인한 후 설정하고, 모르는 경로는 `unmapped`로 남긴다. 매핑 변경은 수집 캐시를 무효화한다. 같은 기간·요청 집합의 전후 총량이 같고 프로젝트별 합이 전체와 일치하는지 확인한다. `roots`의 `required=true` 경로 접근 실패는 게시를 보류한다. 도구를 새로 설치하면 해당 경로를 추가하고 `required=true`로 변경한다. Codex/Claude 별도 설정 홈을 사용하는 환경은 실제 로그 경로를 명시한다.
 
 ```sh
 python3 <scripts>/usage_tracker.py run
@@ -44,9 +44,18 @@ python3 <scripts>/usage_tracker.py sync
 
 ## 작업 완료·검증 기록
 
-이미 확인한 작업 맥락으로 짧은 JSON을 작성해 `task --file <파일>`로 기록한다. 전체 대화 재조회나 매 작업 사용자 설문을 하지 않는다. 안정된 작업 ID를 후속 작업에서도 재사용한다. 같은 세션에 여러 작업이 있으면 `since`/`until`(끝 제외)을 지정한다. 연결할 수 없는 사용량은 미분류다.
+작업 시작 시 아래 명령으로 현재 시각과 고유 핸들을 남기고, 종료 시 해당 핸들과 결과 JSON을 전달한다. 시작을 놓쳤다면 지금부터의 구간만 기록하고 앞부분을 추정하지 않는다. 핸들은 현재 작업 맥락에 보관하며 전역 current-task는 사용하지 않는다. 같은 작업을 재개할 때는 같은 작업 ID로 새 핸들을 발급해 구간을 추가한다. 다른 작업으로 전환하거나 기다리는 구간을 제외해야 하면 현재 구간을 먼저 종료한다. 세션이 바뀌면 새 핸들을 만든다.
 
-세션 원본 ID를 알고 있을 때만 `session-key --tool Codex|Claude --id <ID>`로 가명 키를 얻는다. 모르면 `sessions: []`로 남긴다. 작업 기록 예시:
+```sh
+python3 <scripts>/usage_tracker.py task-start --tool Codex --id issue-42 --project muring/example
+python3 <scripts>/usage_tracker.py task-finish --handle <반환된 handle> --file <결과 JSON>
+```
+
+`session-identify --tool Codex|Claude`로 식별만 점검할 수도 있다. Codex는 현재 환경의 `CODEX_SESSION_ID`·`CODEX_THREAD_ID`가 서로 일치하고 설정된 수집 루트의 `session_meta.id`와 일치할 때만 연결한다. 이 환경 변수는 로컬에서 관찰한 식별 수단이며 모든 실행 환경에 있다고 가정하지 않는다. Claude는 현재 세션에서 확인한 `--session-id <ID>` 또는 실제 훅 입력 JSON을 `--hook-input <파일>`로 전달한다. [Claude 훅의 공통 입력](https://code.claude.com/docs/en/hooks#common-input-fields)의 `session_id`·`transcript_path`를 사용하되 로그의 `sessionId`와 대조한다. `--transcript <파일>`로 확인 대상을 제한할 수 있다. 훅을 자동 설치하거나 최신 transcript·cwd·PID만으로 세션을 추정하지 않는다. 서브에이전트 훅·식별 충돌·읽기 실패·출처 프로젝트 미매핑은 미상으로 남긴다.
+
+종료 JSON에는 `id`, 대상 `project`, 아래 결과 필드를 넣고 `sessions`, `intervals`, `since`, `until`은 비우거나 생략한다. 도구가 확인한 출처 프로젝트·가명 세션 키·시작/종료 시각을 `intervals`에 저장한다. 작업 대상과 출처가 달라도 명시한 구간은 연결하며 프로젝트별 사용량은 세션 cwd 기준을 유지한다. 중복 실행은 같은 결과를 반환하고, 여러 작업 구간이 겹친 응답은 중복 배분하지 않고 미분류로 남긴다. 측정 기준은 요청 사용량의 기록 시각이며 첫 호출 전·마지막 종료 호출 후 사용량까지 포함한다고 주장하지 않는다.
+
+과거 기록과 경계를 모르는 결과는 `task --file <파일>`로 기록한다. `session-key`는 ID를 가명화할 뿐 현재 세션임을 검증하지 않는다. 수동 `intervals`는 `{ "session": "<가명 키>", "project": "<출처 별칭>", "since": "<시간대 포함 시각>", "until": "<시간대 포함 시각>" }` 목록이다. 근거로 두 경계를 확인했을 때만 작성하며 `sessions`에는 해당 키만 넣는다. 예전 형식의 `sessions`+`since`+`until`은 동일 프로젝트의 닫힌 구간으로 지원한다. 한쪽 경계라도 없으면 세션 전체에 연결하지 않는다. 기존 무경계 기록은 보존하되 사용량은 미상으로 둔다. 전체 대화 재조회·세션 전체의 여러 작업 일괄 연결은 하지 않는다. 연결 없는 결과 JSON 예시:
 
 ```json
 {

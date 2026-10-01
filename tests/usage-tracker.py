@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 
 SCRIPTS = Path(__file__).resolve().parents[1] / 'skills/usage-report/scripts'
@@ -15,6 +16,7 @@ sys.path.insert(0, str(SCRIPTS))
 import usage_store as store
 import usage_tracker as tracker
 import usage_render as render
+import usage_session as session
 
 
 def git(path, *args):
@@ -146,7 +148,7 @@ class StoreTests(unittest.TestCase):
     def test_task_linking_ambiguity_does_not_double_count(self):
         self.source();s,q=store.scan(self.cfg);store.publish(self.cfg,s,q)
         session=s['records'][0]['session'];base=Path(self.cfg['worktree'])/'devices/test/tasks'
-        task=dict(id='issue-42',project='muring/demo',sessions=[session],status='completed',verification=[dict(name='regression',result='pass')])
+        task=dict(id='issue-42',project='muring/demo',sessions=[session],status='completed',verification=[dict(name='regression',result='pass')], since=(store.now()-timedelta(days=1)).isoformat(), until=(store.now()+timedelta(days=1)).isoformat())
         store.atomic(base/'one.json',task)
         report=store.aggregate(self.cfg['worktree']);self.assertEqual(report['tasks'][0]['totals']['input'],100)
         store.atomic(base/'two.json',dict(task,id='issue-43'))
@@ -160,7 +162,7 @@ class StoreTests(unittest.TestCase):
     def test_same_issue_id_different_project_is_not_a_conflict(self):
         self.source();s,q=store.scan(self.cfg);store.publish(self.cfg,s,q)
         base=Path(self.cfg['worktree'])/'devices/test/tasks'
-        task=dict(id='issue-42',project='muring/demo',sessions=[s['records'][0]['session']],status='completed')
+        task=dict(id='issue-42',project='muring/demo',sessions=[s['records'][0]['session']],status='completed', since=(store.now()-timedelta(days=1)).isoformat(), until=(store.now()+timedelta(days=1)).isoformat())
         store.atomic(base/'one.json',task);store.atomic(base/'two.json',dict(task,project='muring/other'))
         report=store.aggregate(self.cfg['worktree']);self.assertEqual(report['quality']['task_conflicts'],0)
         self.assertEqual(sum(t['totals']['input'] for t in report['tasks']),100)
@@ -177,6 +179,106 @@ class StoreTests(unittest.TestCase):
         self.source();s,q=store.scan(self.cfg);store.publish(self.cfg,s,q)
         path=Path(self.cfg['worktree'])/'devices/test/manifest.json';manifest=store.read(path);manifest['schema']=999;store.atomic(path,manifest)
         report=store.aggregate(self.cfg['worktree']);self.assertEqual(report['totals']['input'],0);self.assertTrue(report['quality']['problems'])
+
+class TaskTests(unittest.TestCase):
+    setUp = StoreTests.setUp
+    tearDown = StoreTests.tearDown
+    source = StoreTests.source
+    def test_longest_mapping_and_component_boundary(self):
+        projects = {'demo': 'muring/fallback', '/work/demo': 'muring/demo',
+                    '/work/demo/app': 'muring/app', 'C:\\Work\\Demo': 'muring/windows'}
+        self.assertEqual(store.resolve_project('/work/demo/output/imagegen', projects), 'muring/demo')
+        self.assertEqual(store.resolve_project('/work/demo/app/src', projects), 'muring/app')
+        self.assertEqual(store.resolve_project('/work/demo-other/src', projects), 'unmapped')
+        self.assertEqual(store.resolve_project('/else/demo', projects), 'muring/fallback')
+        self.assertEqual(store.resolve_project('c:/work/DEMO/src', projects), 'muring/windows')
+
+    def test_map_reclassification_preserves_request_totals(self):
+        self.source(); before, _ = store.scan(self.cfg)
+        self.cfg['projects']['/private/demo'] = 'muring/explicit'
+        after, quality = store.scan(self.cfg)
+        self.assertFalse(quality['issues'])
+        self.assertEqual(store.token_totals(before['records']), store.token_totals(after['records']))
+        self.assertEqual(after['records'][0]['project'], 'muring/explicit')
+
+    def test_codex_identity_requires_matching_environment_and_metadata(self):
+        self.source()
+        with patch.dict(os.environ, {'CODEX_SESSION_ID':'s', 'CODEX_THREAD_ID':'s'}):
+            identity = session.identify(self.cfg, 'Codex')
+            self.assertEqual(identity['state'], 'verified')
+            self.assertEqual(identity['session'], store.digest(['Codex', 's']))
+        with patch.dict(os.environ, {'CODEX_SESSION_ID':'s', 'CODEX_THREAD_ID':'other'}):
+            self.assertEqual(session.identify(self.cfg, 'Codex')['state'], 'unknown')
+        with patch.dict(os.environ, {'CODEX_SESSION_ID':'missing', 'CODEX_THREAD_ID':'missing'}):
+            self.assertEqual(session.identify(self.cfg, 'Codex')['state'], 'unknown')
+
+    def test_claude_hook_and_explicit_identity(self):
+        path=self.logs/'claude-id.jsonl'
+        path.write_text(json.dumps(dict(sessionId='claude-id', cwd='/private/demo', type='user'))+'\n')
+        self.cfg['roots']=[dict(tool='Claude',path=str(self.logs))]
+        hook=self.root/'hook.json'
+        store.atomic(hook, dict(session_id='claude-id',transcript_path=str(path)))
+        self.assertEqual(session.identify(self.cfg,'Claude',hook_input=hook)['state'],'verified')
+        self.assertEqual(session.identify(self.cfg,'Claude','wrong',path)['state'],'unknown')
+        self.assertEqual(session.identify(self.cfg,'Claude')['state'],'unknown')
+        store.atomic(hook, dict(session_id='claude-id',transcript_path=str(path),agent_id='child'))
+        self.assertEqual(session.identify(self.cfg,'Claude',hook_input=hook)['state'],'unknown')
+        path.write_text(path.read_text()+'{')
+        self.assertEqual(session.identify(self.cfg,'Claude','claude-id',path)['state'],'unknown')
+
+    def test_unbounded_legacy_and_half_open_cross_project_intervals(self):
+        self.source(); snapshot, quality=store.scan(self.cfg);store.publish(self.cfg,snapshot,quality)
+        row=snapshot['records'][0]; base=Path(self.cfg['worktree'])/'devices/test/tasks'
+        task=dict(id='old',project='muring/demo',sessions=[row['session']],status='completed')
+        store.atomic(base/'old.json',task)
+        self.assertEqual(store.aggregate(self.cfg['worktree'])['tasks'][0]['totals']['input'],0)
+        boundary=row['timestamp'];before=(store.legacy.stamp(boundary)-timedelta(seconds=1)).isoformat()
+        after=(store.legacy.stamp(boundary)+timedelta(seconds=1)).isoformat()
+        interval=dict(session=row['session'],project='muring/demo',since=boundary,until=after)
+        store.atomic(base/'new.json',dict(task,id='new',project='muring/target',intervals=[interval]))
+        store.atomic(base/'prior.json',dict(task,id='prior',intervals=[dict(interval,since=before,until=boundary)]))
+        report=store.aggregate(self.cfg['worktree'])
+        self.assertEqual({t['id']:t['totals']['input'] for t in report['tasks']},{'old':0,'new':100,'prior':0})
+        self.assertEqual(report['weeks'][-1]['groups'][0]['project'],'muring/demo')
+
+    def test_unique_handles_retry_and_separate_segments(self):
+        self.source()
+        args=SimpleNamespace(id='task',project='muring/target',tool='Codex',session_id='s',transcript=None,hook_input=None)
+        with patch.dict(os.environ, {'CODEX_SESSION_ID':'s','CODEX_THREAD_ID':'s'}):
+            first=tracker.start_task(self.cfg,args);second=tracker.start_task(self.cfg,args)
+        self.assertNotEqual(first['handle'],second['handle'])
+        result=self.root/'result.json'
+        store.atomic(result,dict(id='task',project='muring/target',status='completed',verification=[]))
+        with patch.object(tracker,'guard',return_value=Path(self.cfg['worktree'])):
+            one=tracker.finish_task(self.cfg,first['handle'],result)
+            saved=Path(one['path']).read_bytes()
+            self.assertEqual(tracker.finish_task(self.cfg,first['handle'],result)['state'],'already_finished')
+            self.assertEqual(Path(one['path']).read_bytes(),saved)
+            tracker.finish_task(self.cfg,second['handle'],result)
+        task=store.read(one['path'])
+        self.assertEqual(len(task['intervals']),2)
+        self.assertEqual(task['project'],'muring/target')
+        self.assertEqual(task['intervals'][0]['project'],'muring/demo')
+
+    def test_unknown_identity_and_wrong_handle_target(self):
+        args=SimpleNamespace(id='task',project='muring/demo',tool='Claude',session_id=None,transcript=None,hook_input=None)
+        start=tracker.start_task(self.cfg,args)
+        result=self.root/'result.json'
+        store.atomic(result,dict(id='other',project='muring/demo',status='completed'))
+        with self.assertRaisesRegex(ValueError,'match the handle'):
+            tracker.finish_task(self.cfg,start['handle'],result)
+        store.atomic(result,dict(id='task',project='muring/demo',status='completed'))
+        with patch.object(tracker,'guard',return_value=Path(self.cfg['worktree'])):
+            end=tracker.finish_task(self.cfg,start['handle'],result)
+        self.assertEqual(store.read(end['path'])['sessions'],[])
+        self.assertEqual(store.read(end['path'])['intervals'],[])
+
+    def test_invalid_interval_is_rejected(self):
+        task=dict(id='task',project='muring/demo',sessions=['a'*64],status='completed')
+        for start,end in [('2026-10-01','2026-10-02'),('bad','bad'),('2026-10-02T00:00:00Z','2026-10-01T00:00:00Z')]:
+            task['intervals']=[dict(session='a'*64,project='muring/demo',since=start,until=end)]
+            with self.assertRaisesRegex(ValueError,'intervals require'):
+                tracker.record_task(self.cfg,task)
 
 class GitTests(unittest.TestCase):
     def setUp(self):

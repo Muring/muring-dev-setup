@@ -12,7 +12,8 @@ import sys
 import tempfile
 import uuid
 
-from usage_store import SCHEMA, METRICS, aggregate, atomic, digest, lock, now, publish, read, scan
+from usage_store import SCHEMA, METRICS, aggregate, atomic, digest, lock, now, publish, read, scan, valid_interval, task_intervals
+from usage_session import identify
 import usage_render
 
 DEFAULT = Path.home() / '.config/ai-workflow/tracking.json'
@@ -197,8 +198,8 @@ def run(config, do_sync=False):
         atomic(state / 'storage' / (month + '.json'), dict(timestamp=now().isoformat(), data_bytes=status.get('data_bytes'), git_objects=status.get('git_objects')))
 
 def record_task(config, source):
-    data = read(source)
-    allowed = {'id', 'project', 'type', 'status', 'sessions', 'verification', 'rework', 'rework_reason', 'parent_task', 'improvements', 'kb_documents', 'evidence_kind', 'since', 'until'}
+    data = read(source) if not isinstance(source, dict) else dict(source)
+    allowed = {'id', 'project', 'type', 'status', 'sessions', 'verification', 'rework', 'rework_reason', 'parent_task', 'improvements', 'kb_documents', 'evidence_kind', 'since', 'until', 'intervals'}
     if not isinstance(data, dict) or set(data) - allowed:
         raise ValueError('unexpected task fields; do not store raw logs')
     require_id(data['id'])
@@ -224,6 +225,11 @@ def record_task(config, source):
         raise ValueError('invalid task status')
     if not isinstance(data.get('sessions'), list) or any(not re.fullmatch('[0-9a-f]{64}', s) for s in data['sessions']):
         raise ValueError('use session keys from the collected data')
+    if 'intervals' in data:
+        if not isinstance(data['intervals'], list) or any(not valid_interval(i) for i in data['intervals']):
+            raise ValueError('intervals require a session, source project and explicit timezone-aware start/end')
+        if set(data['sessions']) != {i['session'] for i in data['intervals']}:
+            raise ValueError('sessions must match interval session keys')
     for field in ('project', 'type', 'verification', 'rework', 'rework_reason', 'parent_task', 'improvements', 'kb_documents'):
         data.setdefault(field, None)
     data.setdefault('evidence_kind', 'explicit_record')
@@ -232,6 +238,50 @@ def record_task(config, source):
     path = guard(config) / 'devices' / config['device'] / 'tasks' / (digest([data['project'], data['id']]) + '.json')
     atomic(path, data)
     return str(path)
+
+def start_task(config, args):
+    require_id(args.id)
+    if not re.fullmatch(r'[a-zA-Z0-9_./-]{1,120}', args.project) or '..' in args.project:
+        raise ValueError('use a canonical target project identifier')
+    since = now().isoformat()
+    identity = identify(config, args.tool, args.session_id, args.transcript, args.hook_input)
+    handle = uuid.uuid4().hex
+    draft = dict(id=args.id, project=args.project, since=since, identity=identity)
+    atomic(Path(config['state']) / 'task-runs' / (handle + '.json'), draft)
+    return dict(handle=handle, since=since, identity=identity)
+
+def finish_task(config, handle, source):
+    if not re.fullmatch('[0-9a-f]{32}', handle):
+        raise ValueError('use the handle returned by task-start')
+    path = Path(config['state']) / 'task-runs' / (handle + '.json')
+    draft = read(path)
+    if not draft:
+        raise ValueError('unknown task handle')
+    if draft.get('result'):
+        return dict(path=draft['result'], state='already_finished')
+    data = read(source)
+    if data.get('id') != draft['id'] or data.get('project') != draft['project']:
+        raise ValueError('task result must match the handle target')
+    if any(data.get(k) for k in ('sessions', 'intervals', 'since', 'until')):
+        raise ValueError('task-finish supplies boundaries; omit manual linkage fields')
+    target = guard(config) / 'devices' / config['device'] / 'tasks' / (digest([data['project'], data['id']]) + '.json')
+    previous = read(target, {})
+    intervals = task_intervals(previous)
+    identity = draft['identity']
+    # Persist the boundary before publishing, so retrying a failed write cannot
+    # silently extend the measured task or duplicate its interval.
+    if not draft.get('until'):
+        draft['until'] = now().isoformat()
+        atomic(path, draft)
+    if identity['state'] == 'verified':
+        interval = dict(session=identity['session'], project=identity['project'], since=draft['since'], until=draft['until'])
+        if interval not in intervals:
+            intervals.append(interval)
+    data.update(intervals=intervals, sessions=sorted({i['session'] for i in intervals}))
+    result = record_task(config, data)
+    draft['result'] = result
+    atomic(path, draft)
+    return dict(path=result, identity=identity, since=draft['since'], until=draft['until'])
 
 def scheduler(config, config_path, enable=False):
     if enable and not is_approved(config):
@@ -326,6 +376,13 @@ def main():
     p = sub.add_parser('session-key'); p.add_argument('--tool', choices=['Codex','Claude'], required=True); p.add_argument('--id', required=True)
     p = sub.add_parser('schedule'); p.add_argument('--enable', action='store_true')
     p = sub.add_parser('task'); p.add_argument('--file', required=True)
+    for command in ('session-identify', 'task-start'):
+        p = sub.add_parser(command)
+        p.add_argument('--tool', choices=['Codex', 'Claude'], required=True)
+        p.add_argument('--session-id'); p.add_argument('--transcript'); p.add_argument('--hook-input')
+        if command == 'task-start':
+            p.add_argument('--id', required=True); p.add_argument('--project', required=True)
+    p = sub.add_parser('task-finish'); p.add_argument('--handle', required=True); p.add_argument('--file', required=True)
     args = parser.parse_args()
     try:
         if args.command == 'init':
@@ -375,6 +432,12 @@ def main():
                     result = accept_correction(config, args.source, args.candidate, args.reason)
                 elif args.command == 'task':
                     result = dict(path=record_task(config, args.file))
+                elif args.command == 'session-identify':
+                    result = identify(config, args.tool, args.session_id, args.transcript, args.hook_input)
+                elif args.command == 'task-start':
+                    result = start_task(config, args)
+                elif args.command == 'task-finish':
+                    result = finish_task(config, args.handle, args.file)
                 else:
                     result = scheduler(config, args.config, args.enable)
         print(json.dumps(result, ensure_ascii=False, indent=2))
