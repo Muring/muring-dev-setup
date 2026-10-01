@@ -5,7 +5,7 @@ import base64
 from datetime import datetime, timedelta, timezone
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import subprocess
 import sys
 import time
@@ -272,9 +272,17 @@ def plan(cfg):
         ordinary=[c for c in members if not c.get('rollback') and c['measurement'].get('modified_epoch') is not None]
         rollback=[c for c in members if c.get('rollback') and c['measurement'].get('modified_epoch') is not None]
         for c in ordinary[:cfg['retention']['keep_latest']]+rollback[:cfg['retention']['keep_rollback']]:c['reasons'].append('retained_recent_or_rollback')
-    for c in items:
-        if any(c is not other and c['platform']==other['platform'] and (inside(c['path'],other['path'],c['platform']) or inside(other['path'],c['path'],c['platform'])) for other in items):
-            c['reasons'].append('overlapping_candidates')
+    # Paths are canonical and duplicates rejected above. Walk ancestors once
+    # instead of comparing every pair in large package-cache inventories.
+    by_path={(c['platform'],c['path']):index for index,c in enumerate(items)}
+    overlapping=set()
+    for index,c in enumerate(items):
+        cls=PureWindowsPath if c['platform']=='windows' else Path
+        for parent in cls(c['path']).parents:
+            other=by_path.get((c['platform'],str(parent)))
+            if other is not None:overlapping.update((index,other))
+    for index,c in enumerate(items):
+        if index in overlapping:c['reasons'].append('overlapping_candidates')
         c['eligible']=not c['reasons']
     result=dict(version=2,created_at=now(),expires_at=datetime.fromtimestamp(time.time()+86400,timezone.utc).isoformat(),
                 config=cfg,items=items,total_reclaimable_bytes=None,approval_required=True)

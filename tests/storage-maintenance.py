@@ -98,6 +98,10 @@ class StorageTests(unittest.TestCase):
         child=self.candidate/'child';child.mkdir()
         self.cfg['candidates'].append(dict(self.cfg['candidates'][0],path=str(child)))
         p=self.plan();self.assertIsNone(p['total_reclaimable_bytes']);self.assertTrue(all(not i['eligible'] for i in p['items']))
+    def test_sibling_prefix_is_not_overlap(self):
+        other=self.root/'old-build-two';other.mkdir()
+        self.cfg['candidates'].append(dict(self.cfg['candidates'][0],path=str(other)))
+        p=self.plan();self.assertTrue(all(i['eligible'] for i in p['items']))
     def test_nested_audit_targets_are_nonadditive(self):
         self.cfg['targets']=[dict(platform='linux',path=str(self.candidate)),dict(platform='linux',path=str(self.candidate/'data'))]
         with patch.object(storage,'discovery',return_value={}):result=storage.scan(self.cfg,self.root/'state')
