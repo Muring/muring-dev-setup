@@ -125,7 +125,7 @@ Claude에서는 `/명령`, Codex에서는 `$명령`으로 같은 원본을 호�
 | `session-brief` | 결정·검증·남은 일과 worktree 상태를 짧게 인계 |
 | `shopify-pdp` | PDP 제작 도구. 변경 섹션 검증과 짧은 결과 출력 지원 |
 
-`storage-maintenance`는 `python3 skills/storage-maintenance/scripts/storage.py scan`으로 읽기 전용 진단을 시작합니다. Windows는 네이티브 메타데이터 수집, Linux는 `du -x`·`df`를 쓰며 미상·부분 결과와 VHD/내부 사용량을 구분합니다. Ubuntu 임시 산출물과 Windows 사용자 Temp는 소유 작업 완료·재생성 가능성·사용 상태·명시적 보존 목록을 검증합니다. `plan`으로 정확한 정리 후보를 검토하고 `apply`는 기본 dry-run입니다. 실제 삭제는 별도 승인 파일과 `--execute`가 필요하며 앱 종료·WSL 압축·예약 활성화는 자동 수행하지 않습니다. [설정·보존 정책·승인 형식](skills/storage-maintenance/references/operations.md)을 참고하세요.
+`storage-maintenance`는 `python3 skills/storage-maintenance/scripts/storage.py scan`으로 읽기 전용 진단을 시작합니다. Windows는 네이티브 메타데이터 수집, Linux는 `du -x`·`df`를 쓰며 미상·부분 결과와 VHD/내부 사용량을 구분합니다. 승인된 WSL root 읽기 전용 프로세스 검사와 Yarn v6 내부 bin 링크 검증을 지원합니다. Ubuntu 임시 산출물과 Windows 사용자 Temp는 소유 작업 완료·재생성 가능성·사용 상태·명시적 보존 목록을 검증합니다. `plan`으로 정확한 정리 후보를 검토하고 `apply`는 기본 dry-run입니다. 실제 삭제는 별도 승인 파일과 `--execute`가 필요하며 앱 종료·WSL 압축·예약 활성화는 자동 수행하지 않습니다. [설정·보존 정책·승인 형식](skills/storage-maintenance/references/operations.md)을 참고하세요.
 
 스크립트는 각 `skills/<명령>/scripts/`에 있고 스킬 경로를 기준으로 실행합니다. `verify-changes`는 같은 콘텐츠 버전의 `session-brief` 조회 모듈을 사용합니다. 실행기는 Python 3.10+와 Git이 있는 Linux/WSL 환경용이며 배포 대기는 인증된 `gh`, PDP 브라우저 검증은 기존 `pdp setup` 런타임이 필요합니다.
 

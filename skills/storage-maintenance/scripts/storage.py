@@ -115,6 +115,9 @@ def config(path):
         if entry.get('platform') not in ('linux', 'windows'):
             raise ValueError('Explicit linux/windows platform required')
         canonical(entry['path'], entry['platform'])
+        if entry.get('process_probe','local') not in ('local','wsl-root'):raise ValueError('Unsupported process probe')
+        if entry.get('symlink_policy','reject') not in ('reject','yarn-v6-bin'):raise ValueError('Unsupported symlink policy')
+        if entry.get('symlink_policy')=='yarn-v6-bin' and (entry['platform']!='linux' or entry.get('classification')!='cache'):raise ValueError('Yarn link policy is for Linux cache candidates only')
     return data
 
 
@@ -135,7 +138,7 @@ def measure(entry, timeout, mode='scan', win=None):
             result = windows(dict(mode=mode, path=path, timeout=timeout, result_path=result_path))
             result['method'] = 'win32-file-id-and-compressed-size'
             return result
-        return linux_scan(path, timeout) if mode == 'scan' else inspect_linux(path, timeout)
+        return linux_scan(path, timeout) if mode == 'scan' else inspect_linux(path, timeout, entry.get('symlink_policy','reject'))
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         return dict(state='unknown', error=str(error), logical_bytes=None, allocated_bytes=None)
 
@@ -211,7 +214,9 @@ def preserve_guard(item, cfg):
 def activity(item, timeout):
     try:
         if item['platform'] == 'linux':
-            return activity_linux(item['path'], timeout)
+            scope=item.get('process_probe_scope',item['path'])
+            if not inside(item['path'],scope,'linux'):raise ValueError('Process probe scope does not contain candidate')
+            return activity_linux(scope, timeout, backend=item.get('process_probe','local'))
         return windows(dict(mode='activity', path=item['path'], timeout=timeout))
     except (OSError, ValueError, subprocess.SubprocessError) as e:
         return dict(state='unknown', reason=str(e), handles='unknown')
@@ -225,7 +230,7 @@ def free_space():
 
 def plan(cfg):
     win = discovery() if any(c['platform']=='windows' for c in cfg['candidates']) else {}
-    items=[];seen=set()
+    items=[];seen=set();runtime_cache={}
     for index,c in enumerate(cfg['candidates']):
         key=(c['platform'],canonical(c['path'],c['platform']))
         if key in seen:raise ValueError('Duplicate candidate path')
@@ -247,7 +252,13 @@ def plan(cfg):
         if not isinstance(c.get('requires_app_exit'),bool):item['reasons'].append('app_exit_requirement_unknown')
         if c.get('regenerable_verified') is not True:item['reasons'].append('regeneration_not_verified')
         if c.get('classification') == 'agent_temp' and c.get('owner_task_completed') is not True:item['reasons'].append('owner_task_not_completed')
-        item['activity']=activity(c,cfg['timeout_seconds']) if item['measurement'].get('state')=='complete' else dict(state='unknown',handles='unknown',reason='manifest_incomplete')
+        runtime_key=(c['platform'],c.get('process_probe','local'),c.get('process_probe_scope',c['path']))
+        if c.get('process_probe_scope') and not inside(c['path'],c['process_probe_scope'],c['platform']):
+            item['activity']=dict(state='unknown',reason='probe_scope_mismatch',handles='unknown')
+        elif item['measurement'].get('state')=='complete':
+            if runtime_key not in runtime_cache:runtime_cache[runtime_key]=activity(c,cfg['timeout_seconds'])
+            item['activity']=runtime_cache[runtime_key]
+        else:item['activity']=dict(state='unknown',handles='unknown',reason='manifest_incomplete')
         if item['activity'].get('state')!='inactive':item['reasons'].append('runtime_'+item['activity'].get('state','unknown'))
         if c.get('current') is True:item['reasons'].append('current_version')
         if c.get('classification') in ('unused_version','old_build') and not c.get('group'):item['reasons'].append('version_group_unknown')
@@ -305,7 +316,7 @@ def apply(plan_data, approval=None, execute=False):
             if runtime.get('state')!='inactive':
                 results.append(dict(path=item['path'],state='skipped',activity=runtime));continue
             if item['platform']=='linux':
-                policy_guard(item,cfg['cleanup_roots']);delete_linux(item['path'],item['measurement'],cfg['timeout_seconds']);result=dict(state='deleted')
+                policy_guard(item,cfg['cleanup_roots']);delete_linux(item['path'],item['measurement'],cfg['timeout_seconds'],item.get('symlink_policy','reject'),item.get('process_probe','local'));result=dict(state='deleted')
             else:
                 result=windows(dict(mode='apply',path=item['path'],timeout=cfg['timeout_seconds'],confirmed=True,**{k:item['measurement'][k] for k in ('fingerprint','logical_bytes')}))
             results.append(dict(path=item['path'],**result))

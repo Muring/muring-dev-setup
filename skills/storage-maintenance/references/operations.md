@@ -89,3 +89,13 @@ compaction은 apply에서 항상 거부하는 VHD 작업이다. 모든 WSL 관�
 Linux는 cwd/exe/fd뿐 아니라 maps의 열린 fd 없는 매핑도 검사한다. 다른 사용자의 읽을 수 없는 프로세스도 미상이다. Windows 실행파일 경로 검사는 관측 결과만 제공하고, 현재 backend는 전체 핸들 열거를 지원하지 않으므로 비활성을 확정하지 않는다. 이 경우 후보는 보류되고 실제 apply도 건너뛴다. 사용자 확인만으로 이 자동 검사 제한을 덮어쓰지 않는다.
 
 apply 실행은 볼륨 여유의 전후 관측을 `space_before`와 `space_after`에 저장한다. Linux 내부와 Windows host는 별도이며, 동시 쓰기·삭제 때문에 차이를 해당 작업만의 회수량으로 단정하지 않는다. dry-run에는 실제 회수 수치를 만들지 않는다. 중첩 경로·hardlink의 총 회수량 추정은 계속 미상으로 둔다.
+
+## 제한된 프로세스 검사 권한과 Yarn v6 링크
+
+기본 `process_probe`는 `local`이다. 사용자가 프로세스 가시성 확보를 요청한 경우 후보에 `"process_probe": "wsl-root"`를 지정한다. `wsl.exe --distribution <현재 배포판> --user root --exec /usr/bin/python3 -I <process_probe.py> <정확한 경로> <제한시간>`으로 읽기 전용 검사만 실행한다. 로그인 설정·sudoers·ptrace·proc 권한을 바꾸거나 프로세스를 종료하지 않는다. probe에는 삭제 기능이 없고, 실제 unlink는 기존 사용자로 수행한다. 서로 다른 boot ID·mount namespace·대상 device/inode, 비-root 결과, 타임아웃은 모두 미상이다. systemd/sd-pam이라는 이름만으로 검사에서 제외하지 않는다.
+
+여러 Yarn 패키지를 계획할 때 `process_probe_scope`를 정확한 캐시 루트로 지정하면 상위 전체에 대한 계획 시점 검사를 한 번 공유한다. 후보가 그 경로 밖이면 거부한다. apply는 이 캐시를 재사용하지 않고 범위와 대상의 프로세스 참조를 다시 확인한다.
+
+Linux cache 후보에서만 `"symlink_policy": "yarn-v6-bin"`을 사용한다. Yarn 캐시 루트 또는 `v6/npm-…` 패키지 하나를 후보로 삼을 수 있다. `.bin` 링크는 해당 package 내부 일반 파일에 이르는 상대 경로여야 한다. 링크 target 문자열도 지문에 포함하고 삭제 직전에 다시 비교한다. 상위·최종 경로의 symlink를 따라가지 않으며 보호 콘텐츠 규칙은 동일하다. 다른 symlink는 기본 거부한다. 보호 콘텐츠가 있는 패키지는 보존 목록에 남기고 나머지만 분할 계획한다. 보호 경로 예외 규칙을 추가하지 않는다.
+
+근거: [WSL 사용자 지정 실행](https://learn.microsoft.com/en-us/windows/wsl/basic-commands), [Linux proc fd 접근 검사](https://man7.org/linux/man-pages/man5/proc_pid_fd.5.html), [Yarn Classic 전역 캐시](https://classic.yarnpkg.com/lang/en/docs/cli/cache/).

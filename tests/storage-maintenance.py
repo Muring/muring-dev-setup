@@ -153,6 +153,55 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(safety.activity_linux(str(self.candidate),proc_root=proc)['state'],'active')
         (task/'maps').unlink()
         self.assertEqual(safety.activity_linux(str(self.candidate),proc_root=proc)['state'],'unknown')
+    def yarn_fixture(self):
+        pkg=self.candidate/'v6/npm-example-1-integrity/node_modules/example'
+        (pkg/'.bin').mkdir(parents=True);(pkg/'bin').mkdir()
+        (pkg/'bin/cli').write_text('fixture executable')
+        link=pkg/'.bin/example';link.symlink_to('../bin/cli')
+        self.cfg['candidates'][0].update(classification='cache',symlink_policy='yarn-v6-bin')
+        return pkg,link
+    def test_yarn_internal_link_unlinks_without_following(self):
+        pkg,link=self.yarn_fixture()
+        p=self.plan();self.assertTrue(p['items'][0]['eligible'])
+        with patch.object(safety,'busy_linux',return_value=False):
+            self.assertEqual(storage.apply(p,self.approve(p),True)['state'],'complete')
+        self.assertFalse(self.candidate.exists())
+    def test_yarn_escape_absolute_chained_and_unknown_links_rejected(self):
+        pkg,link=self.yarn_fixture();outside=self.root/'outside';outside.write_text('preserve')
+        for target in [str(outside),'../../../../../../outside','../bin/chain']:
+            link.unlink();link.symlink_to(target)
+            chain=pkg/'bin/chain'
+            if not chain.is_symlink():chain.symlink_to('cli')
+            self.assertFalse(self.plan()['items'][0]['eligible'])
+            self.assertEqual(outside.read_text(),'preserve')
+        link.unlink();link.symlink_to('../bin/cli')
+        (self.candidate/'other-link').symlink_to(outside)
+        self.assertFalse(self.plan()['items'][0]['eligible'])
+    def test_yarn_link_change_invalidates_manifest(self):
+        pkg,link=self.yarn_fixture();p=self.plan();a=self.approve(p)
+        (pkg/'bin/other').write_text('changed');link.unlink();link.symlink_to('../bin/other')
+        with self.assertRaisesRegex(ValueError,'changed'):storage.apply(p,a,True)
+        self.assertTrue(link.is_symlink())
+    def test_yarn_package_scope_keeps_protected_data(self):
+        pkg,link=self.yarn_fixture()
+        self.cfg['candidates'][0]['path']=str(self.candidate/'v6/npm-example-1-integrity')
+        self.assertTrue(self.plan()['items'][0]['eligible'])
+        (pkg/'.claude').mkdir();(pkg/'.claude/log').write_text('preserve')
+        self.assertFalse(self.plan()['items'][0]['eligible'])
+        self.assertTrue((pkg/'.claude/log').exists())
+    def test_cached_probe_cannot_cover_path_outside_scope(self):
+        self.cfg['candidates'][0]['process_probe_scope']=str(self.candidate)
+        outside=self.root/'outside';outside.mkdir()
+        self.cfg['candidates'].append(dict(self.cfg['candidates'][0],path=str(outside)))
+        p=self.plan();self.assertTrue(p['items'][0]['eligible']);self.assertFalse(p['items'][1]['eligible'])
+    def test_root_probe_rejects_wrong_namespace_or_failure(self):
+        import process_probe
+        ident=process_probe.identity(str(self.candidate))
+        data=dict(state='inactive',uid=0,path=str(self.candidate),identity=dict(ident,mount_namespace='wrong'))
+        with patch.dict(os.environ,WSL_DISTRO_NAME='test'),patch.object(safety.subprocess,'run',return_value=subprocess.CompletedProcess([],0,json.dumps(data),'')):
+            self.assertEqual(safety.activity_linux(str(self.candidate),backend='wsl-root')['state'],'unknown')
+        with patch.dict(os.environ,WSL_DISTRO_NAME='test'),patch.object(safety.subprocess,'run',side_effect=subprocess.TimeoutExpired('probe',1)):
+            self.assertEqual(safety.activity_linux(str(self.candidate),backend='wsl-root')['state'],'unknown')
     def test_comparison_unknown_and_growth_alerts(self):
         old=dict(measured_at='2026-09-01T00:00:00+00:00',volumes=[],targets=[dict(platform='linux',path='/tmp/x',state='complete',method='du',allocated_bytes=1)])
         new=dict(measured_at='2026-09-08T00:00:00+00:00',volumes=[dict(path='C:\\',free_bytes=1)],targets=[dict(old['targets'][0],allocated_bytes=10*1024**3)])

@@ -104,20 +104,52 @@ def parent_fd(path):
         os.close(fd)
 
 
-def inventory_fd(parent, name, timeout=30):
+def yarn_bin_link(root, relative, target):
+    """Only package-local v6 .bin links; no absolute, escaping or chained links."""
+    parts = Path(relative).parts
+    root = Path(root)
+    if root.name.startswith('npm-') and root.parent.name == 'v6':
+        parts = ('v6', root.name, *parts)
+        root = root.parent.parent
+    if (len(parts) < 6 or parts[0] != 'v6' or not parts[1].startswith('npm-')
+            or parts[2] != 'node_modules' or parts[-2] != '.bin'):
+        raise ValueError('Not a Yarn v6 package bin link')
+    package_parts = parts[3:-2]
+    if not (len(package_parts) == 1 or (len(package_parts) == 2 and package_parts[0].startswith('@'))):
+        raise ValueError('Invalid Yarn package layout')
+    if not target.startswith('../') or Path(target).is_absolute():
+        raise ValueError('Yarn bin link must be package-relative')
+    base = Path(root).joinpath(*parts[:-2])
+    destination = Path(os.path.normpath(str(Path(root).joinpath(*parts[:-1], target))))
+    if not destination.is_relative_to(base):
+        raise ValueError('Yarn bin link escapes package')
+    with parent_fd(str(destination)) as (fd, leaf):
+        if not stat.S_ISREG(os.stat(leaf, dir_fd=fd, follow_symlinks=False).st_mode):
+            raise ValueError('Yarn link target is not a regular file')
+
+
+def inventory_fd(parent, name, timeout=30, symlink_policy='reject'):
     started = time.monotonic(); rows = []; seen = set(); logical = allocated = links = 0
+    root = str(Path(os.readlink(f'/proc/self/fd/{parent}')) / name)
+    if symlink_policy not in ('reject', 'yarn-v6-bin'):raise ValueError('Unknown symlink policy')
     root_stat = os.stat(name, dir_fd=parent, follow_symlinks=False)
     def walk(fd, entry, relative):
         nonlocal logical, allocated, links
         if time.monotonic() - started > timeout:
             raise TimeoutError('Candidate metadata timeout')
         s = os.stat(entry, dir_fd=fd, follow_symlinks=False)
-        if s.st_dev != root_stat.st_dev or stat.S_ISLNK(s.st_mode) or not (stat.S_ISDIR(s.st_mode) or stat.S_ISREG(s.st_mode)):
+        if s.st_dev != root_stat.st_dev or not (stat.S_ISDIR(s.st_mode) or stat.S_ISREG(s.st_mode) or (symlink_policy == 'yarn-v6-bin' and relative != '.' and stat.S_ISLNK(s.st_mode))):
             raise ValueError('Reparse/symlink, mount crossing or special file in candidate')
         if protected_name(entry):
             raise ValueError('Protected data inside candidate')
         rows.append([relative, s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_nlink])
-        if stat.S_ISDIR(s.st_mode):
+        if stat.S_ISLNK(s.st_mode):
+            if s.st_nlink != 1:raise ValueError('Hardlinked symlink is not eligible')
+            target = os.readlink(entry, dir_fd=fd)
+            yarn_bin_link(root, relative, target)
+            rows[-1].append(target)
+            logical += s.st_size; allocated += s.st_blocks * 512
+        elif stat.S_ISDIR(s.st_mode):
             child = os.open(entry, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
             try:
                 if os.fstat(child).st_ino != s.st_ino:
@@ -140,64 +172,48 @@ def inventory_fd(parent, name, timeout=30):
                 modified_epoch=max(r[5] for r in rows) / 1e9, hardlinks=links, files=len(seen), rows=rows)
 
 
-def inspect_linux(path, timeout=30):
+def inspect_linux(path, timeout=30, symlink_policy='reject'):
     native_linux(path)
     with parent_fd(path) as (fd, name):
-        result = inventory_fd(fd, name, timeout)
+        result = inventory_fd(fd, name, timeout, symlink_policy)
     result.pop('rows'); return result
 
 
-def activity_linux(path, timeout=30, proc_root=Path('/proc')):
-    """A missing process can race exit; unreadable live state never means idle."""
-    target = Path(path); started = time.monotonic(); unknown = False
-    if Path.cwd().is_relative_to(target):
-        return dict(state='active', evidence='cwd', handles='active')
-    def matches(value):
-        value = value.removesuffix(' (deleted)')
-        return value.startswith('/') and Path(value).is_relative_to(target)
+def activity_linux(path, timeout=30, proc_root=Path('/proc'), backend='local'):
+    from process_probe import identity, probe
+    if backend == 'local':
+        return probe(path, timeout, proc_root)
+    if backend != 'wsl-root' or not os.environ.get('WSL_DISTRO_NAME'):
+        return dict(state='unknown', handles='unknown', reason='unsupported_process_probe')
     try:
-        for process in proc_root.iterdir():
-            if not process.name.isdigit():
-                continue
-            if time.monotonic() - started > timeout:
-                return dict(state='unknown', reason='process_timeout', handles='unknown')
-            try:
-                # Other users may hold files too; unreadable processes remain unknown.
-                links = [process / 'cwd', process / 'exe', *list((process / 'fd').iterdir())]
-                for link in links:
-                    try:
-                        if matches(os.readlink(link)):
-                            return dict(state='active', evidence='cwd_exe_or_fd', handles='active')
-                    except FileNotFoundError:
-                        pass
-                for line in (process / 'maps').read_text().splitlines():
-                    fields = line.split(None, 5)
-                    if len(fields) == 6 and matches(fields[5]):
-                        return dict(state='active', evidence='mapped_file', handles='active')
-            except FileNotFoundError:
-                if process.exists():
-                    unknown = True
-            except OSError:
-                unknown = True
-    except OSError:
-        unknown = True
-    return dict(state='unknown' if unknown else 'inactive', handles='unknown' if unknown else 'checked',
-                reason='process_visibility_incomplete' if unknown else 'no_observed_references')
+        expected = identity(path)
+        helper = str(Path(__file__).with_name('process_probe.py').resolve())
+        command = ['wsl.exe', '--distribution', os.environ['WSL_DISTRO_NAME'], '--user', 'root',
+                   '--exec', '/usr/bin/python3', '-I', helper, path, str(timeout)]
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout+10, check=True)
+        data = json.loads(result.stdout.lstrip('\ufeff'))
+        if data.get('uid') != 0 or data.get('identity') != expected or data.get('path') != path:
+            raise ValueError('Probe identity or namespace mismatch')
+        if data.get('state') not in ('active', 'inactive', 'unknown'):
+            raise ValueError('Invalid process probe state')
+        return dict(data, backend=backend)
+    except (OSError, ValueError, subprocess.SubprocessError) as e:
+        return dict(state='unknown', handles='unknown', reason=str(e), backend=backend)
 
 
-def busy_linux(path):
-    result = activity_linux(path)
+def busy_linux(path, backend='local', timeout=30):
+    result = activity_linux(path, timeout, backend=backend)
     if result['state'] == 'unknown':
         raise ValueError('Cannot verify active processes; keep candidate')
     return result['state'] == 'active'
 
 
-def delete_linux(path, expected, timeout=30):
+def delete_linux(path, expected, timeout=30, symlink_policy='reject', process_probe='local'):
     """Metadata-checked unlink via anchored directory descriptors, never rmtree."""
-    if busy_linux(path):
+    if busy_linux(path, process_probe, timeout):
         raise ValueError('Candidate is used by an active process')
     with parent_fd(path) as (fd, name):
-        actual = inventory_fd(fd, name, timeout)
+        actual = inventory_fd(fd, name, timeout, symlink_policy)
         if actual['fingerprint'] != expected['fingerprint'] or actual['logical_bytes'] != expected['logical_bytes'] or actual['hardlinks']:
             raise ValueError('Candidate changed or has hardlinks')
         indexed = {r[0]: r for r in actual['rows']}
@@ -205,8 +221,10 @@ def delete_linux(path, expected, timeout=30):
             if relative not in indexed:
                 raise ValueError('New entry appeared during apply')
             s = os.stat(entry, dir_fd=parent, follow_symlinks=False); r = indexed[relative]
-            if [s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_nlink] != r[1:]:
+            if [s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_nlink] != r[1:7]:
                 raise ValueError('Candidate changed during apply')
+            if stat.S_ISLNK(s.st_mode) and (len(r) != 8 or os.readlink(entry, dir_fd=parent) != r[7]):
+                raise ValueError('Link changed during apply')
             if stat.S_ISDIR(s.st_mode):
                 child = os.open(entry, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
                 try:

@@ -23,3 +23,7 @@ WSL compaction은 이 명령의 apply 대상이 아니다. 모든 관련 작업 
 Ubuntu 테스트 설치·캐시와 Windows 사용자 Temp도 정확한 후보로만 계획한다. `preserve`에 활성 서버·로그·고유 자료·KB venv/models·사용 중인 Playwright·현재 node_modules와 `.next/dev`를 명시한다. `/tmp/claude-<uid>` 같은 공유 작업 루트는 `root_only: true`로 전체 삭제를 막고, 완료된 소유 작업의 재생성 가능한 하위 산출물만 별도로 검증한다. 보존 경로를 포함한 상위 후보도 거부한다.
 
 후보에는 `regenerable_verified`와, 에이전트 임시 산출물인 경우 `owner_task_completed` 근거가 필요하다. 이름·나이·실행파일 매칭 0건은 소유권이나 비활성 증명이 아니다. Linux cwd/exe/fd/maps와 Windows 실행파일 관측·핸들 검증 범위를 구분해서 보고한다. 전체 핸들 검증이 없는 Windows 상태는 미상으로 보류한다. apply 직전 manifest와 사용 상태를 다시 검사하며 활성·미상 항목은 건너뛰고 잠긴 파일의 삭제 실패는 중단·부분 결과로 남긴다. 프로세스를 종료하거나 검사 우회로 재시도하지 않는다. 실행 결과의 `space_before`·`space_after`는 Linux 내부와 Windows host를 분리한 관측값이며 동시 작업의 영향도 포함한다.
+
+Linux 프로세스 가시성 확보가 승인되면 후보에 `process_probe: "wsl-root"`를 지정할 수 있다. 같은 WSL 배포판의 root로 읽기 전용 `process_probe.py`만 실행하며 boot ID·mount namespace·대상 inode·UID를 대조한다. 삭제는 기존 사용자 권한을 유지한다. sudo/WSL 경로 실패·권한 부족·식별 불일치는 미상으로 남기고 daemon 이름으로 제외하지 않는다. `process_probe_scope`는 후보를 포함하는 상위 경로의 계획 시점 검사만 공유하며 apply에서는 다시 검사한다.
+
+Yarn Classic v6 캐시는 `symlink_policy: "yarn-v6-bin"`으로 패키지 내부 `.bin`의 상대 링크를 지원한다. 패키지 내부 일반 파일로 끝나는 경로만 허용하고 링크 자체의 메타데이터와 target을 manifest에 포함한다. 대상 경로를 따라 재귀 삭제하지 않으며 절대·외부·연쇄 링크, hardlink와 보호 파일은 거부한다. 캐시 안에 `.claude` 등 보호 경로가 있으면 해당 패키지를 보존하고 나머지 정확한 패키지 경로를 별도 후보로 만든다. 캐시 삭제 승인이 있는 경우 같은 범위의 보수적 분할·최신 manifest 검증은 승인 범위를 늘리는 것으로 보지 않는다.
