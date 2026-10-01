@@ -120,9 +120,12 @@ Claude에서는 `/명령`, Codex에서는 `$명령`으로 같은 원본을 호�
 | `code-audit` | 프로젝트 **전체 코드**를 11개 관점에서 점검. 변경분 검사로 축소하지 않음 |
 | `verify-changes` | `.agent-checks.json`에 따라 변경 후 기존 회귀 검사 실행. 요약과 상세 로그 경로 반환 |
 | `usage-report` | 로컬 Codex·Claude 집계, 여러 기기 증분 수집·데이터 전용 동기화·승인된 HTML. 과금/한도 조회와 구분 |
+| `storage-maintenance` | Windows·WSL 읽기 전용 저장공간 진단, 일별·주별 비교, 보존 정책과 정확한 경로 승인에 따른 정리 계획·실행 |
 | `wait-deploy` | 기존 GitHub 배포·CI 상태를 backoff로 대기. push나 배포 실행 없음 |
 | `session-brief` | 결정·검증·남은 일과 worktree 상태를 짧게 인계 |
 | `shopify-pdp` | PDP 제작 도구. 변경 섹션 검증과 짧은 결과 출력 지원 |
+
+`storage-maintenance`는 `python3 skills/storage-maintenance/scripts/storage.py scan`으로 읽기 전용 진단을 시작합니다. Windows는 네이티브 메타데이터 수집, Linux는 `du -x`·`df`를 쓰며 미상·부분 결과와 VHD/내부 사용량을 구분합니다. `plan`으로 정확한 정리 후보를 검토하고 `apply`는 기본 dry-run입니다. 실제 삭제는 별도 승인 파일과 `--execute`가 필요하며 앱 종료·WSL 압축·예약 활성화는 자동 수행하지 않습니다. [설정·보존 정책·승인 형식](skills/storage-maintenance/references/operations.md)을 참고하세요.
 
 스크립트는 각 `skills/<명령>/scripts/`에 있고 스킬 경로를 기준으로 실행합니다. `verify-changes`는 같은 콘텐츠 버전의 `session-brief` 조회 모듈을 사용합니다. 실행기는 Python 3.10+와 Git이 있는 Linux/WSL 환경용이며 배포 대기는 인증된 `gh`, PDP 브라우저 검증은 기존 `pdp setup` 런타임이 필요합니다.
 
