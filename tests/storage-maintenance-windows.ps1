@@ -20,6 +20,14 @@ try {
     $inspect = [StorageNative]::Inspect($candidate, 10, '', $true, $false, '', 0)
     $result = [StorageNative]::Inspect($candidate, 10, '', $true, $true, $inspect.fingerprint, 5)
     Assert ($result.state -eq 'deleted' -and -not [IO.Directory]::Exists($candidate)) ('fixture deletion: ' + ($result | ConvertTo-Json -Compress))
+    $lockedPath = Join-Path $root 'locked'; [IO.Directory]::CreateDirectory($lockedPath) | Out-Null
+    $lockedFile = Join-Path $lockedPath 'data'; [IO.File]::WriteAllText($lockedFile,'fixture')
+    $manifest = [StorageNative]::Inspect($lockedPath,10,'',$true,$false,'',0)
+    $held = [IO.File]::Open($lockedFile,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    try {
+        $locked = [StorageNative]::Inspect($lockedPath,10,'',$true,$true,$manifest.fingerprint,$manifest.logical_bytes)
+        Assert ($locked.state -eq 'refused_or_partial' -and $locked.deleted_entries -eq 0 -and [IO.File]::Exists($lockedFile)) 'locked file was not safely refused'
+    } finally { $held.Dispose() }
     $missing = [StorageNative]::Inspect((Join-Path $root 'missing'), 10, '', $false, $false, '', 0)
     Assert ($missing.state -eq 'unknown' -and $null -eq $missing.logical_bytes) 'missing path became zero'
     $timeout = [StorageNative]::Inspect($root, 0, '', $false, $false, '', 0)
@@ -54,7 +62,7 @@ try {
     $escape = [StorageNative]::Inspect($junction,10,'',$true,$false,'',0)
     Assert ($escape.state -eq 'unknown' -and [IO.File]::Exists((Join-Path $outside 'keep'))) 'junction escape not refused'
     [IO.Directory]::Delete($junction)
-    Write-Output 'PASS: native metadata, allocation, read-only, stale approval refusal, fixture deletion, timeout, ACL failure, unknown path, protected data, hardlink dedup/refusal, junction refusal'
+    Write-Output 'PASS: native metadata, allocation, read-only, stale approval refusal, fixture deletion, locked file refusal, timeout, ACL failure, unknown path, protected data, hardlink dedup/refusal, junction refusal'
 } finally {
     # Only fixtures created in this process; no user cleanup candidates.
     if ([IO.Directory]::Exists($root)) { [IO.Directory]::Delete($root,$true) }

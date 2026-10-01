@@ -33,7 +33,7 @@ Windows 측정은 네이티브 수집기의 대상별 메타데이터 순회와 
   "candidates": [{
     "platform": "linux", "path": "/tmp/example-build",
     "classification": "agent_temp", "group": "example-test-builds",
-    "owner_verified": false, "provenance": "소유 작업과 생성 근거를 확인해서 적는다",
+    "owner_verified": false, "owner_task_completed": false, "regenerable_verified": false, "provenance": "소유 작업과 생성 근거를 확인해서 적는다",
     "recreation_cost": "재빌드에 필요한 시간·네트워크·의존성",
     "requires_app_exit": true, "current": false, "rollback": false
   }]
@@ -79,3 +79,13 @@ Linux에서 같은 사용자 프로세스의 `/proc` 정보도 읽을 수 없으
 compaction은 apply에서 항상 거부하는 VHD 작업이다. 모든 WSL 관련 작업과 Docker/VM 중단 동의, 정확한 배포판·VHD 위치, 충분한 백업 공간과 실제 복원 가능한 백업을 확인한다. 그 뒤 별도 Windows 터미널에서 공식 지원 절차를 선택한다. 현재 WSL 세션에서 shutdown이나 압축을 자동 실행하지 않는다. 중단·백업·압축 승인은 일반 캐시 정리 승인과 구분한다. 완료 후 Windows 실제 할당량과 내부 df를 다시 확인한다.
 
 근거: [WSL 디스크 관리](https://learn.microsoft.com/en-us/windows/wsl/disk-space), [GetCompressedFileSizeW](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getcompressedfilesizew). 대안으로 robocopy를 사용할 때는 `/L /XJ /R:0 /W:0 /BYTES`를 쓰며 현지화된 요약 제목으로 숫자를 파싱하지 않는다. 반환 코드 8 이상이나 읽기 실패는 완전한 0바이트 결과가 아니다.
+
+## Ubuntu 임시 산출물·Windows 사용자 Temp 확장
+
+`preserve`는 설정의 `{ "platform": "linux", "path": "/정확한/보존/경로", "root_only": false }` 목록이다. 기본은 하위 전체와 이를 포함하는 상위 후보를 보호한다. 공유 임시 작업 루트만 `root_only: true`로 두면 루트 일괄 삭제를 막으면서 개별 산출물의 검증을 허용한다. 현재 서버·프로젝트 의존성·개발 캐시·AI 작업 로그·KB venv/models·사용 중인 Playwright 런타임은 보존 목록으로 관리한다. 경로 이름만으로 cache라고 추정하지 않는다.
+
+후보의 `owner_task_completed: true`는 소유 작업이 끝났다는 확인, `regenerable_verified: true`는 고유 자료가 없는 재생성 산출물이라는 확인이다. 기존 기록의 `status: deleted`는 현재 존재 여부나 이 세션의 삭제 승인이 아니다. 원래 검사 기록은 provenance로만 보존하고 매번 현재 manifest를 만든다. 계획 형식은 version 2이며 이전 계획은 새 검증 규칙으로 다시 생성해야 한다. 주변 로그를 보존하려면 archive 파일 또는 하위 node_modules 등 정확한 산출물만 후보로 지정한다. symlink 포함 후보는 기존 안전 규칙에 따라 보류하며 우회하지 않는다.
+
+Linux는 cwd/exe/fd뿐 아니라 maps의 열린 fd 없는 매핑도 검사한다. 다른 사용자의 읽을 수 없는 프로세스도 미상이다. Windows 실행파일 경로 검사는 관측 결과만 제공하고, 현재 backend는 전체 핸들 열거를 지원하지 않으므로 비활성을 확정하지 않는다. 이 경우 후보는 보류되고 실제 apply도 건너뛴다. 사용자 확인만으로 이 자동 검사 제한을 덮어쓰지 않는다.
+
+apply 실행은 볼륨 여유의 전후 관측을 `space_before`와 `space_after`에 저장한다. Linux 내부와 Windows host는 별도이며, 동시 쓰기·삭제 때문에 차이를 해당 작업만의 회수량으로 단정하지 않는다. dry-run에는 실제 회수 수치를 만들지 않는다. 중첩 경로·hardlink의 총 회수량 추정은 계속 미상으로 둔다.

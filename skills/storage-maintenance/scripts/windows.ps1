@@ -44,6 +44,19 @@ if ($request.mode -eq 'discover') {
         catch { $volumes += @{path=$drive.Name;state='unknown';free_bytes=$null} }
     }
     @{targets=$targets;volumes=$volumes;wsl=$wsl;temp=$env:TEMP} | ConvertTo-Json -Depth 8 -Compress
+ } elseif ($request.mode -eq 'activity') {
+    $matched = 0; $unreadable = 0
+    $target = [IO.Path]::GetFullPath($request.path).TrimEnd('\')
+    foreach ($process in Get-Process) {
+        try {
+            $executable = $process.Path
+            if (-not $executable) { $unreadable++; continue }
+            if ($executable.Equals($target, [StringComparison]::OrdinalIgnoreCase) -or $executable.StartsWith($target + '\', [StringComparison]::OrdinalIgnoreCase)) { $matched++ }
+        } catch { $unreadable++ }
+    }
+    # Executable paths cannot prove absence of script users, mapped data or
+    # shared handles. Keep unknown until a complete handle check is available.
+    @{state=$(if ($matched -gt 0) {'active'} else {'unknown'}); executable_matches=$matched; unreadable_processes=$unreadable; handles='unknown'; reason='full_handle_check_unavailable'} | ConvertTo-Json -Compress
 } else {
     $cleanup = $request.mode -ne 'scan'
     $execute = $request.mode -eq 'apply'

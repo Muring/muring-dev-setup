@@ -19,3 +19,7 @@ Claude `/storage-maintenance`, Codex `$storage-maintenance`. `$ARGUMENTS`는 호
 WSL compaction은 이 명령의 apply 대상이 아니다. 모든 관련 작업 중단에 대한 동의와 복원 가능한 백업을 먼저 확인한 뒤 별도 Windows 세션에서 진행한다. 실행 중인 WSL 세션에서 자동 shutdown을 호출하지 않는다. 절차·설정·승인 형식은 [운영 안내](references/operations.md)를 필요한 모드에 맞게 읽는다.
 
 검증과 실제 수행을 구분해 보고한다. 삭제 전후 볼륨 여유를 별도로 확인하고 WSL 내부 삭제량을 즉시 C: 회수량으로 계산하지 않는다. 측정 파일은 로컬 상태 폴더에 보관하며 내용·인증 데이터는 수집하지 않는다.
+
+Ubuntu 테스트 설치·캐시와 Windows 사용자 Temp도 정확한 후보로만 계획한다. `preserve`에 활성 서버·로그·고유 자료·KB venv/models·사용 중인 Playwright·현재 node_modules와 `.next/dev`를 명시한다. `/tmp/claude-<uid>` 같은 공유 작업 루트는 `root_only: true`로 전체 삭제를 막고, 완료된 소유 작업의 재생성 가능한 하위 산출물만 별도로 검증한다. 보존 경로를 포함한 상위 후보도 거부한다.
+
+후보에는 `regenerable_verified`와, 에이전트 임시 산출물인 경우 `owner_task_completed` 근거가 필요하다. 이름·나이·실행파일 매칭 0건은 소유권이나 비활성 증명이 아니다. Linux cwd/exe/fd/maps와 Windows 실행파일 관측·핸들 검증 범위를 구분해서 보고한다. 전체 핸들 검증이 없는 Windows 상태는 미상으로 보류한다. apply 직전 manifest와 사용 상태를 다시 검사하며 활성·미상 항목은 건너뛰고 잠긴 파일의 삭제 실패는 중단·부분 결과로 남긴다. 프로세스를 종료하거나 검사 우회로 재시도하지 않는다. 실행 결과의 `space_before`·`space_after`는 Linux 내부와 Windows host를 분리한 관측값이며 동시 작업의 영향도 포함한다.

@@ -18,9 +18,11 @@ import safety
 class StorageTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(prefix='storage-test-');self.root=Path(self.tmp.name)
+        self.runtime=patch.object(storage,'activity',return_value=dict(state='inactive',handles='checked'));self.runtime.start();self.addCleanup(self.runtime.stop)
+        self.space=patch.object(storage,'free_space',return_value=dict(linux_internal={'free_bytes':100},windows_host=[{'free_bytes':200}]));self.space.start();self.addCleanup(self.space.stop)
         self.candidate=self.root/'old-build';self.candidate.mkdir();(self.candidate/'data').write_bytes(b'hello')
         self.cfg=dict(version=1,timeout_seconds=5,cleanup_roots=[dict(platform='linux',path=str(self.root))],
-                      retention=dict(min_age_days=0,keep_latest=0,keep_rollback=0),candidates=[dict(platform='linux',path=str(self.candidate),classification='agent_temp',owner_verified=True,provenance='isolated test fixture',recreation_cost='recreate fixture',requires_app_exit=False)])
+                      retention=dict(min_age_days=0,keep_latest=0,keep_rollback=0),candidates=[dict(platform='linux',path=str(self.candidate),classification='agent_temp',owner_verified=True,owner_task_completed=True,regenerable_verified=True,provenance='isolated test fixture',recreation_cost='recreate fixture',requires_app_exit=False)])
     def tearDown(self):self.tmp.cleanup()
     def plan(self):return storage.plan(self.cfg)
     def approve(self,plan):
@@ -55,6 +57,9 @@ class StorageTests(unittest.TestCase):
         p=self.plan();a=self.approve(p);(self.candidate/'data').write_bytes(b'changed')
         with self.assertRaisesRegex(ValueError,'changed'):storage.apply(p,a,True)
         self.assertTrue(self.candidate.exists())
+    def test_old_plan_requires_new_safety_checks(self):
+        p=self.plan();p['version']=1;p['digest']=safety.digest({k:v for k,v in p.items() if k!='digest'})
+        with self.assertRaisesRegex(ValueError,'version changed'):storage.apply(p)
     def test_modified_plan_and_expired_plan_refused(self):
         p=self.plan();p['items'][0]['eligible']=False
         with self.assertRaisesRegex(ValueError,'digest'):storage.apply(p)
@@ -122,6 +127,32 @@ class StorageTests(unittest.TestCase):
         old=os.getcwd();os.chdir(self.candidate)
         try:self.assertTrue(safety.busy_linux(str(self.candidate)))
         finally:os.chdir(old)
+    def test_explicit_preserve_blocks_parent_and_descendant(self):
+        self.cfg['preserve']=[dict(platform='linux',path=str(self.candidate/'data'))]
+        self.assertIn('explicit_preserve_path',self.plan()['items'][0]['reasons'])
+        self.cfg['preserve']=[dict(platform='linux',path=str(self.root),root_only=True)]
+        self.assertTrue(self.plan()['items'][0]['eligible'])
+    def test_completed_owner_and_regeneration_required(self):
+        self.cfg['candidates'][0].update(owner_task_completed=False,regenerable_verified=False)
+        reasons=self.plan()['items'][0]['reasons']
+        self.assertIn('owner_task_not_completed',reasons);self.assertIn('regeneration_not_verified',reasons)
+    def test_unknown_or_active_runtime_held_and_rechecked(self):
+        p=self.plan();a=self.approve(p)
+        for state in ['unknown','active']:
+            with patch.object(storage,'activity',return_value=dict(state=state,handles='unknown')):
+                self.assertFalse(self.plan()['items'][0]['eligible'])
+                result=storage.apply(p,a,True)
+                self.assertEqual(result['results'][0]['state'],'skipped')
+                self.assertEqual(result['space_before']['linux_internal']['free_bytes'],100)
+                self.assertEqual(result['space_after']['windows_host'][0]['free_bytes'],200)
+        self.assertTrue(self.candidate.exists())
+    def test_mapped_file_without_open_fd_is_active(self):
+        proc=self.root/'proc';task=proc/'123';(task/'fd').mkdir(parents=True)
+        (task/'cwd').symlink_to(self.root);(task/'exe').symlink_to('/usr/bin/python3')
+        (task/'maps').write_text('100-200 r--p 0000 00:01 123 '+str(self.candidate/'data')+' (deleted)\n')
+        self.assertEqual(safety.activity_linux(str(self.candidate),proc_root=proc)['state'],'active')
+        (task/'maps').unlink()
+        self.assertEqual(safety.activity_linux(str(self.candidate),proc_root=proc)['state'],'unknown')
     def test_comparison_unknown_and_growth_alerts(self):
         old=dict(measured_at='2026-09-01T00:00:00+00:00',volumes=[],targets=[dict(platform='linux',path='/tmp/x',state='complete',method='du',allocated_bytes=1)])
         new=dict(measured_at='2026-09-08T00:00:00+00:00',volumes=[dict(path='C:\\',free_bytes=1)],targets=[dict(old['targets'][0],allocated_bytes=10*1024**3)])

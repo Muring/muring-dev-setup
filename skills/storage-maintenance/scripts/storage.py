@@ -11,7 +11,7 @@ import sys
 import time
 import uuid
 
-from safety import canonical, delete_linux, digest, inspect_linux, inside, native_linux, policy_guard
+from safety import activity_linux, canonical, delete_linux, digest, inspect_linux, inside, native_linux, policy_guard
 
 SCRIPT = Path(__file__).resolve()
 DEFAULT_STATE = Path.home() / '.local/state/storage-audit'
@@ -106,12 +106,12 @@ def config(path):
     data.setdefault('timeout_seconds', 30)
     if not isinstance(data['timeout_seconds'], int) or not 1 <= data['timeout_seconds'] <= 600:
         raise ValueError('Target timeout must be 1..600 seconds')
-    data.setdefault('cleanup_roots', []); data.setdefault('candidates', [])
+    data.setdefault('preserve', []); data.setdefault('cleanup_roots', []); data.setdefault('candidates', [])
     data.setdefault('retention', dict(min_age_days=14, keep_latest=2, keep_rollback=1))
     for key in ('min_age_days', 'keep_latest', 'keep_rollback'):
         if not isinstance(data['retention'].get(key), int) or data['retention'][key] < 0:
             raise ValueError('Retention values must be nonnegative integers')
-    for entry in data.get('targets', []) + data['cleanup_roots'] + data['candidates']:
+    for entry in data.get('targets', []) + data['cleanup_roots'] + data['candidates'] + data['preserve']:
         if entry.get('platform') not in ('linux', 'windows'):
             raise ValueError('Explicit linux/windows platform required')
         canonical(entry['path'], entry['platform'])
@@ -196,6 +196,33 @@ def compare(state, period, cfg, current=None, previous=None):
     return dict(state='compared',period=period,current=latest['measured_at'],previous=prior['measured_at'],alerts=alerts(latest,cfg,prior))
 
 
+def preserve_guard(item, cfg):
+    for keep in cfg.get('preserve', []):
+        if keep['platform'] != item['platform']:
+            continue
+        # Never remove an ancestor containing preserved data. root_only allows
+        # individually verified disposable descendants, never the shared root.
+        ancestor = inside(keep['path'], item['path'], item['platform'])
+        descendant = inside(item['path'], keep['path'], item['platform'])
+        if ancestor or (descendant and not keep.get('root_only', False)):
+            raise ValueError('explicit_preserve_path')
+
+
+def activity(item, timeout):
+    try:
+        if item['platform'] == 'linux':
+            return activity_linux(item['path'], timeout)
+        return windows(dict(mode='activity', path=item['path'], timeout=timeout))
+    except (OSError, ValueError, subprocess.SubprocessError) as e:
+        return dict(state='unknown', reason=str(e), handles='unknown')
+
+
+def free_space():
+    win = discovery()
+    return dict(measured_at=now(), linux_internal=linux_volume(),
+                windows_host=win.get('volumes', []), windows_state=win.get('state', 'complete'))
+
+
 def plan(cfg):
     win = discovery() if any(c['platform']=='windows' for c in cfg['candidates']) else {}
     items=[];seen=set()
@@ -206,6 +233,7 @@ def plan(cfg):
         item=dict(c,path=key[1],reasons=[])
         print(f'[{index+1}/{len(cfg["candidates"])}] inspect {item["path"]}',file=sys.stderr,flush=True)
         try:
+            preserve_guard(c,cfg)
             policy_guard(c,cfg['cleanup_roots'])
             item['measurement']=measure(c,cfg['timeout_seconds'],mode='inspect',win=win)
             m=item['measurement']
@@ -217,6 +245,10 @@ def plan(cfg):
         if c.get('owner_verified') is not True or not c.get('provenance'):item['reasons'].append('owner_not_verified')
         if not c.get('recreation_cost'):item['reasons'].append('recreation_cost_unknown')
         if not isinstance(c.get('requires_app_exit'),bool):item['reasons'].append('app_exit_requirement_unknown')
+        if c.get('regenerable_verified') is not True:item['reasons'].append('regeneration_not_verified')
+        if c.get('classification') == 'agent_temp' and c.get('owner_task_completed') is not True:item['reasons'].append('owner_task_not_completed')
+        item['activity']=activity(c,cfg['timeout_seconds']) if item['measurement'].get('state')=='complete' else dict(state='unknown',handles='unknown',reason='manifest_incomplete')
+        if item['activity'].get('state')!='inactive':item['reasons'].append('runtime_'+item['activity'].get('state','unknown'))
         if c.get('current') is True:item['reasons'].append('current_version')
         if c.get('classification') in ('unused_version','old_build') and not c.get('group'):item['reasons'].append('version_group_unknown')
         items.append(item)
@@ -233,12 +265,13 @@ def plan(cfg):
         if any(c is not other and c['platform']==other['platform'] and (inside(c['path'],other['path'],c['platform']) or inside(other['path'],c['path'],c['platform'])) for other in items):
             c['reasons'].append('overlapping_candidates')
         c['eligible']=not c['reasons']
-    result=dict(version=1,created_at=now(),expires_at=datetime.fromtimestamp(time.time()+86400,timezone.utc).isoformat(),
+    result=dict(version=2,created_at=now(),expires_at=datetime.fromtimestamp(time.time()+86400,timezone.utc).isoformat(),
                 config=cfg,items=items,total_reclaimable_bytes=None,approval_required=True)
     result['digest']=digest(result);return result
 
 
 def apply(plan_data, approval=None, execute=False):
+    if plan_data.get('version') != 2:raise ValueError('Plan version changed; inspect again with runtime and preservation checks')
     contents={k:v for k,v in plan_data.items() if k!='digest'}
     if digest(contents)!=plan_data.get('digest'):raise ValueError('Plan digest mismatch')
     if datetime.fromisoformat(plan_data['expires_at'])<datetime.now(timezone.utc):raise ValueError('Plan expired; inspect again')
@@ -258,14 +291,19 @@ def apply(plan_data, approval=None, execute=False):
         if entry.get('inactive_confirmed') is not True:raise ValueError('Active use is unknown; refuse cleanup')
         if entry.get('fingerprint')!=item['measurement']['fingerprint'] or entry.get('logical_bytes')!=item['measurement']['logical_bytes']:raise ValueError('Approval size or fingerprint mismatch')
         if item['requires_app_exit'] and entry.get('app_exit_confirmed') is not True:raise ValueError('Required app exit is not confirmed')
+        preserve_guard(item,cfg)
         policy_guard(item,cfg['cleanup_roots'])
         actual=measure(item,cfg['timeout_seconds'],mode='inspect')
         if actual.get('state')!='complete' or actual.get('fingerprint')!=entry['fingerprint'] or actual.get('logical_bytes')!=entry['logical_bytes'] or actual.get('hardlinks'):raise ValueError('Candidate changed; create a new plan')
         checked.append(item)
     if not execute:return dict(state='dry_run',paths=[i['path'] for i in checked],deleted=0)
-    results=[]
+    results=[]; before=free_space()
     for item in checked:
         try:
+            preserve_guard(item,cfg)
+            runtime=activity(item,cfg['timeout_seconds'])
+            if runtime.get('state')!='inactive':
+                results.append(dict(path=item['path'],state='skipped',activity=runtime));continue
             if item['platform']=='linux':
                 policy_guard(item,cfg['cleanup_roots']);delete_linux(item['path'],item['measurement'],cfg['timeout_seconds']);result=dict(state='deleted')
             else:
@@ -275,6 +313,7 @@ def apply(plan_data, approval=None, execute=False):
         except (OSError,ValueError,subprocess.SubprocessError) as e:
             results.append(dict(path=item['path'],state='refused_or_partial',error=str(e)));break
     return dict(state='complete' if len(results)==len(checked) and all(r['state']=='deleted' for r in results) else 'partial',
+                space_before=before,space_after=free_space(),space_note='Observed free bytes by layer; concurrent writes affect deltas. Linux unlink is not Windows host reclaim.',
                 results=results,not_attempted=[i['path'] for i in checked[len(results):]])
 
 
