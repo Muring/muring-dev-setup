@@ -144,11 +144,16 @@ status: "draft"
 
 등록 전에 썸네일을 만든다. 건너뛰지 않는다. Codex 에서는 아래 순서를 그대로 한다.
 
+**Codex·Claude 공통 기본값은 해당 포스트의 제목을 이미지 안에 포함하는 것이다.**
+확정한 프론트매터 `title`의 정확한 문자열을 생성 프롬프트에 넣는다. 개별 사용자가 제목 제외나
+다른 표현을 요청하면 그 요청을 우선한다. 과거 참조 프롬프트의 `no text` 지시는 이 기본값으로 대체한다.
+
 **Claude Code 에서 실행 중이면** 이미지 생성 도구가 없으므로 2번 생성만 Codex CLI 에 맡긴다.
 `command -v codex` 로 먼저 확인하고, 없거나 실패하면 그때만 6번 보고에 "썸네일은 Codex 에서
 `$blog-draft` 로 생성" 과 실패 이유를 남긴다. 1번에서 구성 부분을 바꾼 프롬프트를 파일로 써서 넘긴다
 (셸 문자열에 보간하지 않는다). 요청문에는 `image_gen` 사용, 결과를 `<slug>.png` 로 복사,
-`<slug>-prompt.json` 작성, **업로드 금지·다른 파일 수정 금지**를 적는다.
+`<slug>-prompt.json` 작성, 해당 포스트 제목의 정확한 문자열과 이미지 내 포함 지시(사용자 예외가 있으면 그 지시),
+**업로드 금지·다른 파일 수정 금지**를 적는다.
 
 ```bash
 cd "$MUBLOG/output/imagegen/blog-development-thumbnails" && \
@@ -159,11 +164,13 @@ cd "$MUBLOG/output/imagegen/blog-development-thumbnails" && \
 만들어진 PNG 는 Read 로 직접 열어 확인한 뒤 3번부터 이어간다(2026-09-30, 1회 약 3만 토큰으로 생성 확인).
 
 1. `$MUBLOG/output/imagegen/blog-development-thumbnails/` 를 연다. `manifest.json` 과
-   `blog-development-8-prompt.json` 이 시리즈 스타일 프롬프트의 원본이고, 직전 편 `blog-development-<n-1>.png` 가
-   스타일 참조 이미지다. 프롬프트의 스타일 문장(Warm ivory·navy·cobalt·teal·orange, paper texture, 16:9, no text)은
-   그대로 두고 **구성 부분만 이번 글 주제로** 바꾼다.
+   `blog-development-8-prompt.json` 은 기존 시리즈의 참고 자료다. 기존 시리즈는 사용자가 승인한 이전 편을
+   스타일 참조 이미지로 삼되, 모든 글의 색상·배치를 동일하게 고정하지 않는다. 이번 글의 주제와 제목에 맞게
+   색상·구성·제목 배치를 조정하고, 카드 크기에서도 제목이 읽히도록 대비와 가장자리 여백을 확보한다.
 2. `image_gen` 으로 한 장 만들고 `<slug>.png` 와 `<slug>-prompt.json`(사용한 프롬프트·참조 파일)을 같은 폴더에 둔다.
-3. 올리기 전에 사용자에게 이미지를 보여 주고 확인을 받는다. 마음에 안 들면 프롬프트만 바꿔 다시 만든다.
+3. 생성한 이미지를 직접 열어 제목이 확정한 문자열과 일치하는지(오탈자·누락·숫자 포함), 글자가 읽히는지,
+   가장자리나 예상 카드·OG 크롭에서 잘리지 않는지 검수한다. 문제가 있으면 수정 후 다시 확인한다.
+   올리기 전에 사용자에게 이미지를 보여 주고 확인을 받는다. 마음에 안 들면 프롬프트를 바꿔 다시 만든다.
 4. 확인되면 **올릴 파일을 JPEG 로 줄인다.** `image_gen` PNG 는 1672×941·약 1.7MB 인데, 가장 크게 쓰이는 곳이
    카드(2x 에서 828px)와 OG(360px 정사각)라 1200px 이면 충분하고 JPEG q82 로 약 70KB 가 된다(눈으로 구분 안 됨).
    **WebP 는 쓰지 않는다** — OG 이미지를 그리는 satori 가 WebP 를 못 읽어 `opengraph-image` 가 실패한다.
