@@ -20,7 +20,8 @@ check() {
     base) has_packages "${packages[@]}" && python3 "$ROOT/settings.py" check-shell ;;
     node) [[ "$(node -v 2>/dev/null)" = "v$NODE_VERSION" ]] && corepack yarn --version >/dev/null && python3 "$ROOT/settings.py" check-shell ;;
     gh) gh --version >/dev/null 2>&1 && test -s /etc/apt/sources.list.d/github-cli.list ;;
-    claude|codex) "$ITEM" --version >/dev/null 2>&1 ;;
+    claude) claude --version >/dev/null 2>&1 ;;
+    codex) python3 "$ROOT/codex_install.py" check ;;
     zsh) [[ "$(getent passwd "$(id -un)" | cut -d: -f7)" = /usr/bin/zsh ]] && python3 "$ROOT/settings.py" check-shell ;;
     shell-theme) test -d "$HOME/.zsh/zsh-autosuggestions" && test -d "$HOME/.zsh/zsh-syntax-highlighting" && python3 "$ROOT/settings.py" check-theme ;;
     shell-replace) python3 "$ROOT/settings.py" check-replace ;;
@@ -66,7 +67,7 @@ apply() {
       printf 'deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n' "$(dpkg --print-architecture)" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
       apt_install gh ;;
     claude) npm install -g @anthropic-ai/claude-code ;;
-    codex) npm install -g @openai/codex ;;
+    codex) python3 "$ROOT/codex_install.py" install ;;
     zsh) apt_install zsh; sudo chsh -s /usr/bin/zsh "$(id -un)"; shell_config ;;
     shell-theme)
       mkdir -p "$HOME/.zsh"

@@ -1,6 +1,7 @@
 {
   "version": 1,
   "checks": [
+    {"name":"codex-install","command":["python3","tests/codex-install.py","-q"],"paths":["linux/codex_install.py","linux/update-codex.sh","linux/steps.sh","tests/codex-install.py"],"timeout":120},
     {"name":"usage-tracker","command":["python3","tests/usage-tracker.py","-q"],"paths":["skills/usage-report/*","tests/usage-tracker.py"],"timeout":120},
     {"name":"usage-publish","command":["python3","tests/usage-publish.py","-q"],"paths":["skills/usage-report/*","tests/usage-publish.py"],"timeout":120},
     {"name":"ai-workflow","command":["python3","tests/ai-workflow.py","-q"],"paths":["skills/*","tests/ai-workflow.py"],"timeout":120},
