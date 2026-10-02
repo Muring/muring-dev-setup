@@ -1,6 +1,9 @@
 {
   "version": 1,
   "checks": [
+    {"name":"usage-knowledge-reviews","command":["python3","tests/usage-knowledge-reviews.py","-q"],"paths":["skills/usage-report/*","tests/usage-knowledge-reviews.py","tests/fixtures/knowledge-reviews.json"],"timeout":120},
+    {"name":"usage-knowledge","command":["python3","tests/usage-knowledge.py","-q"],"paths":["skills/usage-report/*","tests/usage-knowledge.py","tests/fixtures/ai-task-activity.json"],"timeout":120},
+    {"name":"usage-activity","command":["python3","tests/usage-activity.py","-q"],"paths":["skills/usage-report/*","tests/usage-activity.py","tests/fixtures/ai-task-activity.json"],"timeout":120},
     {"name":"usage-git-publish","command":["python3","tests/usage-git-publish.py","-q"],"paths":["skills/usage-report/*","tests/usage-git-publish.py","tests/fixtures/git-publish-*.json"],"timeout":120},
     {"name":"storage-maintenance","command":["python3","tests/storage-maintenance.py","-q"],"paths":["skills/storage-maintenance/*","tests/storage-maintenance.py"],"timeout":120},
     {"name":"codex-install","command":["python3","tests/codex-install.py","-q"],"paths":["linux/codex_install.py","linux/update-codex.sh","linux/steps.sh","tests/codex-install.py"],"timeout":120},

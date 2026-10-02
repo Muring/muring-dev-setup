@@ -119,7 +119,7 @@ Claude에서는 `/명령`, Codex에서는 `$명령`으로 같은 원본을 호�
 |---|---|
 | `code-audit` | 프로젝트 **전체 코드**를 11개 관점에서 점검. 변경분 검사로 축소하지 않음 |
 | `verify-changes` | `.agent-checks.json`에 따라 변경 후 기존 회귀 검사 실행. 요약과 상세 로그 경로 반환 |
-| `usage-report` | 로컬 Codex·Claude 집계, 여러 기기 증분 수집·데이터 전용 동기화·승인된 HTML. 과금/한도 조회와 구분 |
+| `usage-report` | 로컬 Codex·Claude 집계, 여러 기기 증분 수집·데이터 전용 동기화·승인된 HTML. 선택 작업 presentation/activity와 private usage-data 보완 파일 병합·동기화 지원. 핸들 기반 KB 검색·근거 있는 선택 기록·종료 시 적용 이력 대조와 private 대조 결과 이력 전달. 과금/한도 조회와 구분 |
 | `storage-maintenance` | Windows·WSL 읽기 전용 저장공간 진단, 일별·주별 비교, 보존 정책과 정확한 경로 승인에 따른 정리 계획·실행 |
 | `wait-deploy` | 기존 GitHub 배포·CI 상태를 backoff로 대기. push나 배포 실행 없음 |
 | `session-brief` | 결정·검증·남은 일과 worktree 상태를 짧게 인계 |

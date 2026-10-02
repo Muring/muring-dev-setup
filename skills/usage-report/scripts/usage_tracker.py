@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Local multi-device usage pipeline; no LLM, paid API, or source-log upload."""
 import argparse
-from datetime import timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import json
 import os
 from pathlib import Path
@@ -275,7 +276,7 @@ def run(config, do_sync=False):
 
 def record_task(config, source):
     data = read(source) if not isinstance(source, dict) else dict(source)
-    allowed = {'id', 'project', 'type', 'status', 'sessions', 'verification', 'rework', 'rework_reason', 'parent_task', 'improvements', 'kb_documents', 'evidence_kind', 'since', 'until', 'intervals'}
+    allowed = {'id', 'project', 'type', 'status', 'sessions', 'verification', 'rework', 'rework_reason', 'parent_task', 'improvements', 'kb_documents', 'evidence_kind', 'since', 'until', 'intervals', 'presentation', 'activity'}
     if not isinstance(data, dict) or set(data) - allowed:
         raise ValueError('unexpected task fields; do not store raw logs')
     require_id(data['id'])
@@ -287,7 +288,13 @@ def record_task(config, source):
             raise ValueError('invalid task time boundary')
     if data.get('since') and data.get('until') and stamp(data['since']) >= stamp(data['until']):
         raise ValueError('task interval must be positive')
-    if len(json.dumps(data, ensure_ascii=False)) > 8000:
+    if 'presentation' in data:
+        from usage_presentation import validate
+        data['presentation']=validate(data['presentation'])
+    if 'activity' in data:
+        from usage_activity import validate as validate_activity
+        data['activity']=validate_activity(data['activity'],data['project'],data['id'])
+    if len(json.dumps({k:v for k,v in data.items() if k not in ('presentation','activity')}, ensure_ascii=False)) > 8000:
         raise ValueError('task metadata too large; keep evidence concise')
     if data.get('rework') is not None and not isinstance(data.get('rework'), bool):
         raise ValueError('rework must be true, false or null')
@@ -312,7 +319,21 @@ def record_task(config, source):
     if data['evidence_kind'] not in ('explicit_record', 'observed'):
         raise ValueError('inferred task results are not accepted')
     path = guard(config) / 'devices' / config['device'] / 'tasks' / (digest([data['project'], data['id']]) + '.json')
+    previous=read(path,{})
+    if 'activity' in previous:
+        from usage_activity import validate as validate_activity, validate_transition
+        if 'activity' not in data:data['activity']=validate_activity(previous['activity'])
+        validate_transition(previous['activity'],data['activity'])
+    # Check the proposed record against a private sidecar before replacing data.
+    from usage_activity import merge_supplements
+    key = digest([data['project'], data['id']])
+    effective = dict(data)
+    sidecar = Path(config['worktree']) / 'task-activities' / (key + '.json')
+    if sidecar.exists():
+        merge_supplements({key: effective}, set(), [(sidecar.name, read(sidecar))], digest)
     atomic(path, data)
+    from usage_knowledge import selection_events
+    selection_events(config, effective)
     return str(path)
 
 def start_task(config, args):
@@ -322,9 +343,55 @@ def start_task(config, args):
     since = now().isoformat()
     identity = identify(config, args.tool, args.session_id, args.transcript, args.hook_input)
     handle = uuid.uuid4().hex
-    draft = dict(id=args.id, project=args.project, since=since, identity=identity)
+    timezone = config.get('timezone', 'Asia/Seoul')
+    occurred_on = datetime.fromisoformat(since).astimezone(ZoneInfo(timezone)).date().isoformat()
+    draft = dict(id=args.id, project=args.project, since=since, identity=identity,
+                 occurred_on=occurred_on, date_timezone=timezone)
     atomic(Path(config['state']) / 'task-runs' / (handle + '.json'), draft)
-    return dict(handle=handle, since=since, identity=identity)
+    return dict(handle=handle, id=args.id, project=args.project, since=since, identity=identity)
+
+def review_task(config, handle, record_confirmed=False):
+    from usage_knowledge import task_context, review, selection_events
+    from usage_knowledge_reviews import source_for, fingerprint, validate as validate_review, persist
+    draft = task_context(config, handle)
+    if not draft.get('result'):
+        raise ValueError('finish the task before reconciling stored decisions')
+    guard(config)
+    tasks = [t for t in aggregate(config['worktree'])['tasks']
+             if (t['project'], t['id']) == (draft['project'], draft['id'])]
+    if len(tasks) != 1 or tasks[0].get('conflict'):
+        raise ValueError('missing or conflicting task for knowledge-review')
+    task = tasks[0]
+    source = source_for(task)
+    attempt = dict(schemaVersion=1, id=uuid.uuid4().hex, project=task['project'], taskId=task['id'],
+                   reviewedAt=now().isoformat(), status='completed', source=source,
+                   sourceDigest=fingerprint(task['project'], task['id'], source), result=None, error=None)
+    try:
+        result = review(config, tasks, record_confirmed)
+        if not isinstance(result, dict):
+            raise ValueError('KB review must return an object')
+        if result.get('state') == 'unavailable':
+            attempt.update(status='unavailable', error=result['reason'])
+        else:
+            attempt['result'] = result
+        validate_review(attempt)
+    except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError):
+        message = 'KB reconciliation execution or result validation failed; no matching state inferred.'
+        result = dict(state='failed', visibility='private', reason=message)
+        attempt.update(status='failed', result=None, error=message)
+    persist(config, attempt)
+    atomic(Path(config['state']) / 'knowledge-reviews' / (handle + '.json'), result)
+    selection_events(config, task)
+    return result
+
+def finish_review(config, handle):
+    try:
+        return review_task(config, handle)
+    except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError):
+        result = dict(state='failed', visibility='private',
+                      reason='Task saved; KB reconciliation failed. Retry knowledge-review with this handle.')
+        atomic(Path(config['state']) / 'knowledge-reviews' / (handle + '.json'), result)
+        return result
 
 def finish_task(config, handle, source):
     if not re.fullmatch('[0-9a-f]{32}', handle):
@@ -334,7 +401,7 @@ def finish_task(config, handle, source):
     if not draft:
         raise ValueError('unknown task handle')
     if draft.get('result'):
-        return dict(path=draft['result'], state='already_finished')
+        return dict(path=draft['result'], state='already_finished', knowledgeReview=finish_review(config, handle))
     data = read(source)
     if data.get('id') != draft['id'] or data.get('project') != draft['project']:
         raise ValueError('task result must match the handle target')
@@ -354,10 +421,25 @@ def finish_task(config, handle, source):
         if interval not in intervals:
             intervals.append(interval)
     data.update(intervals=intervals, sessions=sorted({i['session'] for i in intervals}))
+    sidecar = Path(config['worktree']) / 'task-activities' / (digest([data['project'], data['id']]) + '.json')
+    if draft.get('occurred_on') and 'activity' not in data and 'activity' not in previous and not sidecar.exists():
+        # Only newly observed starts supply a default date. Historical handles,
+        # explicit unknown timing and existing records must not be backfilled.
+        activity = {key: None for key in ('purpose', 'actions', 'aiRole', 'humanRole', 'outcomes',
+                                         'verification', 'followUps', 'knowledge', 'effects', 'publicCase')}
+        activity.update(schemaVersion=1, category='unknown',
+                        timing=dict(startedAt=None, endedAt=None, occurredAt=None,
+                                    occurredOn=draft['occurred_on'], precision='date', labelDate=None,
+                                    basis='source_record', evidenceRefs=['observed-task-start']),
+                        evidence=[dict(id='observed-task-start', kind='artifact',
+                                       reference=str(path) + '#since',
+                                       note='task-start에서 관측한 시작일 (' + draft['date_timezone'] + '). 역할·효과는 추정하지 않음.')])
+        data['activity'] = activity
     result = record_task(config, data)
     draft['result'] = result
     atomic(path, draft)
-    return dict(path=result, identity=identity, since=draft['since'], until=draft['until'])
+    return dict(path=result, identity=identity, since=draft['since'], until=draft['until'],
+                knowledgeReview=finish_review(config, handle))
 
 def scheduler(config, config_path, enable=False):
     if enable and not is_approved(config):
@@ -453,7 +535,10 @@ def main():
     p = sub.add_parser('approve'); p.add_argument('--fingerprint', required=True)
     sub.add_parser('status'); sub.add_parser('sync'); sub.add_parser('scheduled')
     sub.add_parser('publish-retry'); sub.add_parser('publish-status')
-    p = sub.add_parser('kb-selection'); p.add_argument('--document', required=True); p.add_argument('--task', required=True)
+    p = sub.add_parser('kb-selection'); p.add_argument('--document', required=True); p.add_argument('--task', required=True); p.add_argument('--project', required=True)
+    p = sub.add_parser('kb-search'); p.add_argument('--handle', required=True); p.add_argument('query')
+    p.add_argument('--keyword', action='store_true'); p.add_argument('--limit', type=int, default=3); p.add_argument('--project')
+    p = sub.add_parser('knowledge-review'); p.add_argument('--handle', required=True); p.add_argument('--record-confirmed', action='store_true')
     p = sub.add_parser('accept-correction'); p.add_argument('--source', required=True); p.add_argument('--candidate', required=True); p.add_argument('--reason', required=True, choices=['verified_source_correction', 'verified_source_replacement'])
     p = sub.add_parser('session-key'); p.add_argument('--tool', choices=['Codex','Claude'], required=True); p.add_argument('--id', required=True)
     p = sub.add_parser('schedule'); p.add_argument('--enable', action='store_true')
@@ -497,12 +582,16 @@ def main():
                         if result['state'] == 'ok':
                             atomic(marker, dict(completed_period=due))
                 elif args.command == 'kb-selection':
-                    document = (Path(config['repo']) / args.document).resolve()
-                    if not document.is_relative_to(Path(config['repo']).resolve()) or not document.is_file():
-                        raise ValueError('select an existing KB document')
-                    event = dict(key=uuid.uuid4().hex, kind='kb_selection', timestamp=now().isoformat(), document=document.relative_to(Path(config['repo'])).as_posix(), task=require_id(args.task), evidence_kind='explicit_record')
-                    atomic(Path(config['state']) / 'kb-events' / (event['key'] + '.json'), event)
-                    result = event
+                    from usage_knowledge import selection_events
+                    tasks = [t for t in aggregate(config['worktree'])['tasks'] if (t['project'], t['id']) == (args.project, args.task)]
+                    if len(tasks) != 1 or tasks[0].get('conflict'):
+                        raise ValueError('select a single non-conflicting stored task')
+                    result = dict(events=selection_events(config, tasks[0], args.document))
+                elif args.command == 'kb-search':
+                    from usage_knowledge import search
+                    result = search(config, args.handle, args.query, args.keyword, args.limit, args.project)
+                elif args.command == 'knowledge-review':
+                    result = review_task(config, args.handle, args.record_confirmed)
                 elif args.command == 'report':
                     result = dict(path=make_report(config, args.preview, args.year), fingerprint=usage_render.fingerprint(config['template']))
                 elif args.command == 'approve':

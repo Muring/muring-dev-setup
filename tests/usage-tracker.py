@@ -22,6 +22,10 @@ import usage_session as session
 def git(path, *args):
     return subprocess.check_output(['git', '-C', str(path), *args], text=True, stderr=subprocess.DEVNULL).strip()
 
+def activity_sample(name='known_work'):
+    return next(c['activity'] for c in json.loads((Path(__file__).parent/'fixtures/ai-task-activity.json').read_text()) if c['name']==name)
+
+
 class StoreTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -159,6 +163,65 @@ class StoreTests(unittest.TestCase):
         path=self.root/'task.json'
         path.write_text(json.dumps(dict(id='issue-42',project='muring/demo',sessions=[],status='completed',verification=[dict(name='x'*301,result='pass')])))
         with self.assertRaisesRegex(ValueError,'300 characters'):tracker.record_task(self.cfg,path)
+    def presentation(self):
+        return dict(title='작업 결과',summary='실제로 확인한 결과',occurredAt=None,checks=[dict(title='회귀 검사',method='격리 fixture',result='pass',reason=None)],followUps=[dict(title='배포',status='delegated',note='소유 세션에서 수행')],knowledge=[],evidence=['로컬 검증'])
+    def test_native_presentation_and_supplement_preserve_verification(self):
+        task=dict(id='present',project='muring/demo',sessions=[],status='completed',verification=[dict(name='original',result='not_run')],presentation=self.presentation())
+        with patch.object(tracker,'guard',return_value=Path(self.cfg['worktree'])):path=tracker.record_task(self.cfg,task)
+        key=store.digest([task['project'],task['id']]);side=Path(self.cfg['worktree'])/'task-presentations'/(key+'.json')
+        store.atomic(side,{k:task[k] for k in ('id','project','presentation')})
+        report=store.aggregate(self.cfg['worktree']);t=report['tasks'][0]
+        self.assertEqual(t['verification'],task['verification']);self.assertEqual(t['presentation'],task['presentation'])
+        self.assertEqual(store.read(path)['presentation'],task['presentation'])
+        changed=self.presentation();changed['title']='다른 결과'
+        store.atomic(side,dict(id=task['id'],project=task['project'],presentation=changed))
+        with self.assertRaisesRegex(ValueError,'conflict'):store.aggregate(self.cfg['worktree'])
+    def test_supplement_only_missing_target_and_wrong_filename(self):
+        task=dict(id='present',project='muring/demo',sessions=[],status='completed')
+        root=Path(self.cfg['worktree']);key=store.digest([task['project'],task['id']])
+        side=root/'task-presentations'/(key+'.json');store.atomic(side,dict(id=task['id'],project=task['project'],presentation=self.presentation()))
+        with self.assertRaisesRegex(ValueError,'target missing'):store.aggregate(root)
+        store.atomic(root/'devices/test/tasks/task.json',task)
+        self.assertEqual(store.aggregate(root)['tasks'][0]['presentation'],self.presentation())
+        self.assertNotIn('presentation',store.read(root/'devices/test/tasks/task.json'))
+        side.rename(side.with_name('wrong.json'))
+        with self.assertRaisesRegex(ValueError,'filename mismatch'):store.aggregate(root)
+    def test_multidevice_presentation_conflict_is_an_error(self):
+        root=Path(self.cfg['worktree']);t=dict(id='present',project='muring/demo',sessions=[],status='completed')
+        store.atomic(root/'devices/a/tasks/task.json',t)
+        store.atomic(root/'devices/b/tasks/task.json',dict(t,presentation=self.presentation()))
+        with self.assertRaisesRegex(ValueError,'conflicting task'):store.aggregate(root)
+    def test_invalid_presentation_contract(self):
+        import usage_presentation as presentation
+        for field,value in [('title','😀'*151),('occurredAt','2026-02-30T00:00:00Z'),('occurredAt','2026-01-01T00:00:00'),('checks',[dict(title='검사',method='',result='delegated',reason=None)]),('evidence',[False])]:
+            p=self.presentation();p[field]=value
+            with self.assertRaises(ValueError):presentation.validate(p)
+        p=self.presentation();p['extra']='not allowed'
+        with self.assertRaises(ValueError):presentation.validate(p)
+        p=self.presentation();del p['knowledge']
+        with self.assertRaises(ValueError):presentation.validate(p)
+    def test_activity_native_sidecar_roundtrip_keeps_tokens_and_presentation(self):
+        self.source();snapshot,quality=store.scan(self.cfg);store.publish(self.cfg,snapshot,quality)
+        root=Path(self.cfg['worktree']);before=store.aggregate(root)['totals']
+        task=dict(id='activity',project='muring/demo',sessions=[],status='completed',presentation=self.presentation(),activity=activity_sample())
+        with patch.object(tracker,'guard',return_value=root):path=tracker.record_task(self.cfg,task)
+        key=store.digest([task['project'],task['id']]);side=root/'task-activities'/(key+'.json')
+        store.atomic(side,dict(version=1,project=task['project'],id=task['id'],activity=task['activity']))
+        report=store.aggregate(root);self.assertEqual(before,report['totals']);self.assertEqual(report['tasks'][0]['activity'],task['activity']);self.assertEqual(report['tasks'][0]['presentation'],task['presentation'])
+        task.pop('activity')
+        with patch.object(tracker,'guard',return_value=root):tracker.record_task(self.cfg,task)
+        self.assertEqual(store.read(path)['activity'],activity_sample())
+        d=store.read(side);d['activity']['purpose']='충돌';store.atomic(side,d)
+        with self.assertRaisesRegex(ValueError,'conflict'):store.aggregate(root)
+    def test_activity_sidecar_missing_target_invalid_and_no_backfill(self):
+        root=Path(self.cfg['worktree']);task=dict(id='activity',project='muring/demo',sessions=[],status='completed')
+        store.atomic(root/'devices/a/tasks/task.json',task)
+        self.assertNotIn('activity',store.aggregate(root)['tasks'][0])
+        key=store.digest([task['project'],task['id']]);side=root/'task-activities'/(key+'.json')
+        data=dict(version=1,id=task['id'],project=task['project'],activity=activity_sample('verified_date_only'));store.atomic(side,data)
+        report=store.aggregate(root);self.assertEqual(report['tasks'][0]['activity']['timing']['precision'],'date');self.assertNotIn('activity',store.read(root/'devices/a/tasks/task.json'))
+        (root/'devices/a/tasks/task.json').unlink()
+        with self.assertRaisesRegex(ValueError,'target missing'):store.aggregate(root)
     def test_same_issue_id_different_project_is_not_a_conflict(self):
         self.source();s,q=store.scan(self.cfg);store.publish(self.cfg,s,q)
         base=Path(self.cfg['worktree'])/'devices/test/tasks'
@@ -260,6 +323,60 @@ class TaskTests(unittest.TestCase):
         self.assertEqual(task['project'],'muring/target')
         self.assertEqual(task['intervals'][0]['project'],'muring/demo')
 
+    def test_finish_preserves_confirmed_activity_date_without_inferred_timestamp(self):
+        self.source()
+        args=SimpleNamespace(id='task',project='muring/target',tool='Codex',session_id='s',transcript=None,hook_input=None)
+        with patch.dict(os.environ, {'CODEX_SESSION_ID':'s','CODEX_THREAD_ID':'s'}):
+            start=tracker.start_task(self.cfg,args)
+        activity=activity_sample('verified_date_only')
+        result=self.root/'result.json'
+        store.atomic(result,dict(id='task',project='muring/target',status='completed',activity=activity))
+        with patch.object(tracker,'guard',return_value=Path(self.cfg['worktree'])):
+            end=tracker.finish_task(self.cfg,start['handle'],result)
+        saved=store.read(end['path'])
+        self.assertEqual(saved['activity'],activity)
+        self.assertTrue(saved['intervals'][0]['since'])
+        self.assertTrue(saved['intervals'][0]['until'])
+        self.assertIsNone(saved['activity']['timing']['occurredAt'])
+
+    def test_new_task_collects_local_start_date_even_with_unknown_session(self):
+        args=SimpleNamespace(id='dated',project='muring/demo',tool='Claude',session_id=None,transcript=None,hook_input=None)
+        with patch.object(tracker,'now',return_value=store.legacy.stamp('2026-09-01T16:00:00Z')):
+            start=tracker.start_task(self.cfg,args)
+        result=self.root/'result.json'
+        store.atomic(result,dict(id='dated',project='muring/demo',status='completed'))
+        with patch.object(tracker,'guard',return_value=Path(self.cfg['worktree'])):
+            end=tracker.finish_task(self.cfg,start['handle'],result)
+        saved=store.read(end['path'])
+        self.assertEqual(saved['sessions'],[])
+        self.assertEqual(saved['activity']['timing']['occurredOn'],'2026-09-02')
+        self.assertIsNone(saved['activity']['timing']['occurredAt'])
+        self.assertEqual(saved['activity']['category'],'unknown')
+        self.assertIsNone(saved['activity']['effects'])
+        self.assertEqual(store.read(end['path']),store.read(tracker.finish_task(self.cfg,start['handle'],result)['path']))
+
+    def test_date_collection_preserves_explicit_unknown_and_existing_sidecar(self):
+        args=SimpleNamespace(id='dated',project='muring/demo',tool='Claude',session_id=None,transcript=None,hook_input=None)
+        result=self.root/'result.json'
+        for mode in ('explicit','sidecar','legacy'):
+            with self.subTest(mode=mode):
+                args.id=mode
+                start=tracker.start_task(self.cfg,args)
+                data=dict(id=mode,project=args.project,status='completed')
+                if mode=='explicit':data['activity']=activity_sample('all_unknown')
+                if mode=='sidecar':
+                    side=Path(self.cfg['worktree'])/'task-activities'/(store.digest([args.project,mode])+'.json')
+                    store.atomic(side,dict(version=1,project=args.project,id=mode,activity=activity_sample('all_unknown')))
+                if mode=='legacy':
+                    p=Path(self.cfg['state'])/'task-runs'/(start['handle']+'.json')
+                    draft=store.read(p);draft.pop('occurred_on');draft.pop('date_timezone');store.atomic(p,draft)
+                store.atomic(result,data)
+                with patch.object(tracker,'guard',return_value=Path(self.cfg['worktree'])):
+                    end=tracker.finish_task(self.cfg,start['handle'],result)
+                saved=store.read(end['path'])
+                if mode=='explicit':self.assertEqual(saved['activity']['timing']['precision'],'unknown')
+                else:self.assertNotIn('activity',saved)
+
     def test_unknown_identity_and_wrong_handle_target(self):
         args=SimpleNamespace(id='task',project='muring/demo',tool='Claude',session_id=None,transcript=None,hook_input=None)
         start=tracker.start_task(self.cfg,args)
@@ -293,6 +410,174 @@ class GitTests(unittest.TestCase):
         git(self.repo,'worktree','add','-qb','usage-data',self.cfg['worktree'])
         (self.repo/'keep').write_text('user work')
     def tearDown(self):self.tmp.cleanup()
+    def supplement(self, root=None, ident='task', title='작업'):
+        root=Path(root or self.cfg['worktree'])
+        task=dict(id=ident,project='muring/demo',sessions=[],status='completed')
+        store.atomic(root/'devices/a/tasks'/(ident+'.json'),task)
+        presentation=dict(title=title,summary='',occurredAt=None,checks=[],followUps=[],knowledge=[],evidence=[])
+        path=root/'task-presentations'/(store.digest([task['project'],ident])+'.json')
+        store.atomic(path,dict(project=task['project'],id=ident,presentation=presentation))
+        return path
+    def clone_data(self):
+        second=self.root/'second';subprocess.run(['git','clone','-q','--branch','usage-data',str(self.remote),str(second)],check=True)
+        git(second,'config','user.name','Test');git(second,'config','user.email','test@example.invalid')
+        return second
+    def test_valid_supplements_sync_to_data_branch_only(self):
+        p=self.supplement();tracker.sync(self.cfg)
+        relative=p.relative_to(self.cfg['worktree']).as_posix()
+        self.assertTrue(git(self.remote,'show','usage-data:'+relative))
+        self.assertNotIn('task-presentations',git(self.remote,'ls-tree','--name-only','main'))
+        self.assertEqual((self.repo/'keep').read_text(),'user work')
+    def test_invalid_or_orphan_supplement_refused_before_commit(self):
+        p=self.supplement();head=git(self.cfg['worktree'],'rev-parse','HEAD')
+        d=store.read(p);d['presentation']['extra']='invalid';store.atomic(p,d)
+        with self.assertRaises(ValueError):tracker.sync(self.cfg)
+        self.assertEqual(head,git(self.cfg['worktree'],'rev-parse','HEAD'))
+        p=self.supplement();(Path(self.cfg['worktree'])/'devices/a/tasks/task.json').unlink()
+        with self.assertRaisesRegex(ValueError,'target missing'):tracker.sync(self.cfg)
+    def test_invalid_staged_sidecar_hidden_by_valid_worktree_refused(self):
+        p=self.supplement();target=Path(self.cfg['worktree']);git(target,'add','devices')
+        good=store.read(p);bad=dict(good,presentation=dict(good['presentation'],extra='invalid'))
+        store.atomic(p,bad);git(target,'add','task-presentations');store.atomic(p,good)
+        with self.assertRaises(ValueError):tracker.sync(self.cfg)
+    def test_sidecar_symlink_and_filename_mismatch_refused(self):
+        p=self.supplement();original=p.read_text();p.unlink()
+        outside=self.root/'outside.json';outside.write_text(original);p.symlink_to(outside)
+        with self.assertRaises(ValueError):tracker.guard(self.cfg)
+        p.unlink();wrong=p.with_name('b'*64+'.json');wrong.write_text(original)
+        with self.assertRaisesRegex(ValueError,'filename mismatch'):tracker.guard(self.cfg)
+    def test_concurrent_sidecar_edits_are_held(self):
+        p=self.supplement();tracker.sync(self.cfg);other=self.clone_data()
+        self.supplement(other,title='원격');git(other,'add','.');git(other,'commit','-qm','remote');git(other,'push')
+        remote=git(self.remote,'rev-parse','usage-data');self.supplement(title='로컬')
+        with self.assertRaisesRegex(ValueError,'concurrent edits'):tracker.sync(self.cfg)
+        self.assertEqual(remote,git(self.remote,'rev-parse','usage-data'))
+        self.assertEqual(store.read(p)['presentation']['title'],'로컬')
+    def test_remote_task_native_conflict_blocks_merged_push(self):
+        self.supplement();tracker.sync(self.cfg);other=self.clone_data()
+        task=other/'devices/a/tasks/task.json';d=store.read(task)
+        d['presentation']=dict(title='원격 원본',summary='',occurredAt=None,checks=[],followUps=[],knowledge=[],evidence=[])
+        store.atomic(task,d);git(other,'add','.');git(other,'commit','-qm','remote');git(other,'push')
+        remote=git(self.remote,'rev-parse','usage-data')
+        store.atomic(Path(self.cfg['worktree'])/'devices/a/health.json',{'state':'ok'})
+        with self.assertRaisesRegex(ValueError,'conflict'):tracker.sync(self.cfg)
+        self.assertEqual(remote,git(self.remote,'rev-parse','usage-data'))
+    def test_disjoint_remote_supplement_merges(self):
+        self.supplement();tracker.sync(self.cfg);other=self.clone_data()
+        self.supplement(other,ident='second');git(other,'add','.');git(other,'commit','-qm','remote');git(other,'push')
+        self.supplement(ident='third');tracker.sync(self.cfg)
+        self.assertEqual(len(store.aggregate(self.cfg['worktree'])['tasks']),3)
+    def activity_supplement(self, root=None):
+        root=Path(root or self.cfg['worktree']);p=self.supplement(root)
+        d=store.read(p);path=root/'task-activities'/p.name
+        store.atomic(path,dict(version=1,project=d['project'],id=d['id'],activity=activity_sample()))
+        return path
+    def test_activity_sync_is_private_branch_only(self):
+        p=self.activity_supplement();tracker.sync(self.cfg)
+        self.assertEqual(json.loads(git(self.remote,'show','usage-data:'+p.relative_to(self.cfg['worktree']).as_posix()))['activity'],activity_sample())
+        self.assertNotIn('task-activities',git(self.remote,'ls-tree','--name-only','main'))
+    def test_invalid_staged_activity_hidden_by_valid_worktree_refused(self):
+        p=self.activity_supplement();good=store.read(p);bad=store.read(p);bad['activity']['effects']=[{}]
+        store.atomic(p,bad);git(self.cfg['worktree'],'add','devices','task-presentations','task-activities');store.atomic(p,good)
+        with self.assertRaises(ValueError):tracker.sync(self.cfg)
+    def test_remote_activity_native_conflict_blocks_push(self):
+        self.activity_supplement();tracker.sync(self.cfg);other=self.clone_data()
+        task=other/'devices/a/tasks/task.json';d=store.read(task);d['activity']=activity_sample();d['activity']['purpose']='원격 다른 결과';store.atomic(task,d)
+        git(other,'add','.');git(other,'commit','-qm','remote');git(other,'push');remote=git(self.remote,'rev-parse','usage-data')
+        store.atomic(Path(self.cfg['worktree'])/'devices/a/health.json',{'state':'ok'})
+        with self.assertRaisesRegex(ValueError,'conflict'):tracker.sync(self.cfg)
+        self.assertEqual(remote,git(self.remote,'rev-parse','usage-data'))
+
+    def test_knowledge_staged_and_remote_conflict_blocks_push(self):
+        p=self.activity_supplement();good=store.read(p);good['activity']=activity_sample('knowledge_direct')
+        store.atomic(p,good);tracker.sync(self.cfg)
+        self.assertEqual(store.aggregate(self.cfg['worktree'])['tasks'][0]['activity'],good['activity'])
+        bad=store.read(p);bad['activity']['knowledgeDecisions'][0]['verification']=None
+        store.atomic(p,bad);git(self.cfg['worktree'],'add','task-activities');store.atomic(p,good)
+        with self.assertRaises(ValueError):tracker.sync(self.cfg)
+        git(self.cfg['worktree'],'add','task-activities')
+        other=self.clone_data();task=other/'devices/a/tasks/task.json';d=store.read(task)
+        d['activity']=activity_sample('knowledge_direct');d['activity']['knowledgeDecisions'][0]['reason']='원격의 다른 판단'
+        store.atomic(task,d);git(other,'add','.');git(other,'commit','-qm','conflicting decision');git(other,'push')
+        remote=git(self.remote,'rev-parse','usage-data')
+        with self.assertRaisesRegex(ValueError,'conflict'):tracker.sync(self.cfg)
+        self.assertEqual(remote,git(self.remote,'rev-parse','usage-data'))
+
+    def review_record(self, device=None):
+        from usage_knowledge_reviews import fingerprint, persist
+        p=self.activity_supplement()
+        target=store.read(p)
+        cases=json.loads((Path(__file__).parent/'fixtures/knowledge-reviews.json').read_text())
+        value=next(c['review'] for c in cases if c['name']=='matched')
+        value.update(project=target['project'],taskId=target['id'])
+        for row in value['result']['rows']:row.update(project=target['project'],task=target['id'])
+        value['sourceDigest']=fingerprint(value['project'],value['taskId'],value['source'])
+        return Path(persist(dict(self.cfg,device=device or self.cfg['device']),value))
+
+    def test_review_sync_roundtrip_and_immutable_history(self):
+        from usage_knowledge_reviews import persist
+        p=self.review_record();tracker.sync(self.cfg)
+        value=store.read(p)
+        self.assertEqual(json.loads(git(self.remote,'show','usage-data:'+p.relative_to(self.cfg['worktree']).as_posix())),value)
+        self.assertEqual(store.aggregate(self.cfg['worktree'])['tasks'][0]['knowledgeReviews'],[value])
+        failure=dict(value,id='b'*32,status='failed',result=None,error='Reconciliation failed')
+        persist(self.cfg,failure);tracker.sync(self.cfg)
+        self.assertEqual(len(store.aggregate(self.cfg['worktree'])['tasks'][0]['knowledgeReviews']),2)
+        remote=git(self.remote,'rev-parse','usage-data')
+        value['reviewedAt']='2026-10-03T00:00:00Z';store.atomic(p,value)
+        with self.assertRaisesRegex(ValueError,'preserved'):tracker.sync(self.cfg)
+        self.assertEqual(remote,git(self.remote,'rev-parse','usage-data'))
+        p.unlink()
+        with self.assertRaisesRegex(ValueError,'preserved'):tracker.guard(self.cfg)
+
+    def test_review_invalid_staged_hidden_by_valid_worktree_is_rejected(self):
+        p=self.review_record();good=store.read(p);bad=store.read(p);bad['result']['rows'][0]['reason']='Wrong reason'
+        store.atomic(p,bad);git(self.cfg['worktree'],'add','devices','task-presentations','task-activities');store.atomic(p,good)
+        with self.assertRaises(ValueError):tracker.sync(self.cfg)
+
+    def test_remote_review_attempt_conflict_blocks_push(self):
+        p=self.review_record();tracker.sync(self.cfg);other=self.clone_data()
+        value=store.read(p);value['reviewedAt']='2026-10-03T00:00:00Z'
+        store.atomic(other/'devices/other/knowledge-reviews'/p.name,value)
+        git(other,'add','.');git(other,'commit','-qm','review conflict');git(other,'push')
+        remote=git(self.remote,'rev-parse','usage-data')
+        with self.assertRaisesRegex(ValueError,'Conflicting'):tracker.sync(self.cfg)
+        self.assertEqual(remote,git(self.remote,'rev-parse','usage-data'))
+
+    def handoff_supplement(self):
+        p=self.activity_supplement();d=store.read(p)
+        a=activity_sample('handoff_dispatch_accepted')
+        a['handoffs'][0]['from']=dict(project=d['project'],taskId=d['id'])
+        d['activity']=a;store.atomic(p,d)
+        return p
+
+    def test_handoff_roundtrip_and_history_removal_refused(self):
+        p=self.handoff_supplement();tracker.sync(self.cfg)
+        data=store.read(p)
+        self.assertEqual(store.aggregate(self.cfg['worktree'])['tasks'][0]['activity'],data['activity'])
+        remote=git(self.remote,'rev-parse','usage-data')
+        data['activity'].pop('handoffs');store.atomic(p,data)
+        with self.assertRaisesRegex(ValueError,'handoff'):tracker.sync(self.cfg)
+        self.assertEqual(remote,git(self.remote,'rev-parse','usage-data'))
+
+    def test_handoff_cross_task_remote_conflict_blocks_push(self):
+        p=self.handoff_supplement();tracker.sync(self.cfg);other=self.clone_data()
+        a=store.read(p)['activity'];a['handoffs'][0]['request']='원격 요청 충돌'
+        store.atomic(other/'devices/b/tasks/recipient.json',dict(id='recipient-task',project='example/app',status='in_progress',activity=a))
+        git(other,'add','.');git(other,'commit','-qm','remote handoff');git(other,'push')
+        remote=git(self.remote,'rev-parse','usage-data')
+        store.atomic(Path(self.cfg['worktree'])/'devices/a/health.json',{'state':'ok'})
+        with self.assertRaisesRegex(ValueError,'handoff.*conflict'):tracker.sync(self.cfg)
+        self.assertEqual(remote,git(self.remote,'rev-parse','usage-data'))
+
+    def test_handoff_endpoint_and_hidden_invalid_stage_refused(self):
+        p=self.handoff_supplement();good=store.read(p);bad=store.read(p)
+        bad['activity']['handoffs'][0]['from']['project']='unrelated/project'
+        store.atomic(p,bad)
+        with self.assertRaisesRegex(ValueError,'endpoint'):tracker.guard(self.cfg)
+        git(self.cfg['worktree'],'add','devices','task-presentations','task-activities')
+        store.atomic(p,good)
+        with self.assertRaisesRegex(ValueError,'endpoint'):tracker.guard(self.cfg)
     def test_sync_preserves_ordinary_worktree(self):
         store.atomic(Path(self.cfg['worktree'])/'devices/a/health.json',{'state':'ok'})
         tracker.sync(self.cfg)
