@@ -21,6 +21,23 @@ def counts(source):
 def export(worktree, sequence, revision, improvements=None):
     if sequence < 1 or not re.fullmatch(r'[0-9a-f]{40,64}', revision):
         raise ValueError('positive sequence and full source commit required')
+    # Validate current active identities before the legacy yearly filtering.
+    # Superseded shard files are intentionally not read.
+    from usage_publish_common import check_global_identities
+    def active_shards():
+        from usage_store import SCHEMA, METRICS, digest
+        for base in sorted((Path(worktree)/'devices').glob('*')):
+            if not base.is_dir():continue
+            manifest=read(base/'manifest.json')
+            if not manifest or manifest.get('schema')!=SCHEMA or manifest.get('metrics')!=METRICS:
+                raise ValueError('Invalid active manifest; preserving published snapshot')
+            for entry in manifest['shards'].values():
+                path=(base/entry['path']).resolve()
+                if not path.is_relative_to(base.resolve()):raise ValueError('Shard path escapes device')
+                shard=read(path)
+                if not shard or digest(shard)!=entry['hash']:raise ValueError('Shard integrity failure')
+                yield shard
+    check_global_identities(active_shards())
     manifests = [read(p) for p in Path(worktree).glob('devices/*/manifest.json')]
     years = sorted({int(week[:4]) for m in manifests for week in m['shards']})
     if not years:
@@ -55,17 +72,42 @@ def export(worktree, sequence, revision, improvements=None):
                 cursor += timedelta(days=7)
             weeks.sort(key=lambda w:w['week'])
         tasks = [dict(id=t['id'], project=t['project'], type=t.get('type'), status=t['status'], verification=t.get('verification') or [], rework=t.get('rework'), conflict=t['conflict'], totals=counts(t['totals'])) for t in report['tasks']]
+        from usage_presentation import validate
+        from usage_activity import validate as validate_activity, validate_collection
+        validate_collection(report['tasks'])
+        for public, original in zip(tasks, report['tasks']):
+            if 'presentation' in original:public['presentation']=validate(original['presentation'])
+            if 'activity' in original:public['activity']=validate_activity(original['activity'],original['project'],original['id'])
+            if 'knowledgeReviews' in original:
+                from usage_knowledge_reviews import validate_reviews
+                public['knowledgeReviews'] = validate_reviews(original['knowledgeReviews'], original)
         result.append(dict(year=year, weeks=weeks, devices=devices, tasks=tasks, quality={k:report['quality'][k] for k in ('problems','fallback_identities','task_conflicts','ambiguous_task_responses','comparison')},
                            fieldObservations=report['field_observation_counts']))
     return dict(schema=1, metrics='usage-v1', sequence=sequence, sourceRevision=revision, generatedAt=now().isoformat(), years=result,
                 improvements=[{k:e[k] for k in ('date','kind','summary') if k in e} for e in improvements or []])
 
+def validate_ack(ack,sequence,revision):
+    if not isinstance(ack,dict) or set(ack)!={'accepted','sequence','sourceRevision'} or type(ack['accepted']) is not bool:
+        raise ValueError('Unverified aggregate ACK')
+    current=ack['sequence'];source=ack['sourceRevision']
+    if type(current) is not int or not 1<=current<=9007199254740991 or not isinstance(source,str) or not re.fullmatch('[a-f0-9]{40}',source):
+        raise ValueError('Invalid aggregate ACK identity')
+    if ack['accepted']:
+        if (current,source)!=(sequence,revision):raise ValueError('Applied ACK differs from request')
+        state='applied'
+    else:
+        if current<sequence or current==sequence and source!=revision:raise ValueError('Contradictory aggregate ACK')
+        state='already_applied' if current==sequence else 'superseded'
+    return dict(schema=1,state=state,requestedSequence=sequence,requestedRevision=revision,appliedSequence=current,appliedRevision=source)
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--worktree',required=True);p.add_argument('--sequence',type=int,required=True)
     p.add_argument('--revision',required=True);p.add_argument('--output',required=True)
-    p.add_argument('--improvements');p.add_argument('--send',action='store_true')
+    p.add_argument('--improvements');p.add_argument('--send',action='store_true');p.add_argument('--receipt')
     args=p.parse_args()
+    if args.receipt and (not args.send or Path(args.receipt).exists()):raise ValueError('Receipt requires --send and a fresh output path')
     payload=export(args.worktree,args.sequence,args.revision,read(args.improvements,[]) if args.improvements else [])
     atomic(args.output,payload)
     if args.send:
@@ -74,5 +116,11 @@ def main():
         request=urllib.request.Request(url,data=json.dumps(payload).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+key},method='POST')
         with urllib.request.urlopen(request,timeout=60) as response:
             if response.status!=200: raise RuntimeError('snapshot delivery failed')
+            body=response.read(8193)
+            if len(body)>8192:raise ValueError('Oversize aggregate ACK')
+            receipt=validate_ack(json.loads(body),args.sequence,args.revision)
+        if args.receipt:
+            from usage_publish_common import durable_write
+            durable_write(args.receipt,receipt)
     print(json.dumps({'years':len(payload['years']),'weeks':sum(len(y['weeks']) for y in payload['years']),'sent':args.send}))
 if __name__=='__main__':main()

@@ -33,3 +33,5 @@ python3 <이-스킬-경로>/scripts/usage_report.py --tool codex --days 7 --by p
 Codex는 `CODEX_SESSION_ID`·`CODEX_THREAD_ID`를 로컬 `session_meta.id`와 대조한다. Claude는 현재 세션에서 확인한 ID를 `--session-id`로, 또는 실제 훅 입력 파일을 `--hook-input`으로 전달하고 로그의 `sessionId`와 대조한다. 최신 파일·cwd만으로 현재 세션을 추측하지 않는다. 식별 불가면 `sessions: []`, 시작을 놓쳤으면 확인 가능한 시점부터만 기록한다. 별도 구간마다 새 핸들을 쓰며 작업 대상 프로젝트와 세션 출처 프로젝트는 구분한다. 상세 입력·과거 기록 조건은 지속 수집 안내를 따른다.
 
 `task --file`은 경계를 모르는 결과나 근거가 있는 과거 기록에 사용한다. 시작·종료가 모두 확인되지 않은 연결은 집계에서 미상으로 남긴다. 세션 전체를 여러 작업에 일괄 연결하지 않는다. 데이터만 전용 worktree에 기록하며 일반 프로젝트 변경을 자동 커밋하지 않는다.
+
+활성 일일 경로는 [Git 기반 발행 계약](references/git-publish.md)의 opt-in `publisher.mode=git-workflow`다. 하루 1회 수집·검증된 usage-data sync 성공 후 main workflow를 호출하고, 정확한 run/receipt를 검증해 접수·실행·DB 결과를 구분한다. 실패·미확인은 성공으로 바꾸지 않으며 실제 전송·예약 전환은 별도 승인 범위다. 이전 원본 DB 전달과 서버 정정은 기존 변경·검증 근거로 보존하며 현재 운영 대상이 아니다. Git 정정의 승인·감사 연결은 미완료 후속 범위다.

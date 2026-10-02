@@ -369,11 +369,27 @@ def aggregate(worktree, year=None):
     for base in sorted((worktree / 'devices').glob('*')):
         for path in (base / 'tasks').glob('*.json'):
             task = read(path)
+            if 'knowledgeReviews' in task:
+                raise ValueError('knowledgeReviews must come from immutable review records')
+            if 'presentation' in task:
+                from usage_presentation import validate
+                validate(task['presentation'])
+            if 'activity' in task:
+                from usage_activity import validate as validate_activity
+                validate_activity(task['activity'],task['project'],task['id'])
             key = digest([task['project'], task['id']])
             if key in tasks and tasks[key] != task:
+                if any(field in tasks[key] or field in task for field in ('presentation','activity')):
+                    raise ValueError('presentation target has conflicting task records')
                 task_conflicts.add(key)
             else:
                 tasks[key] = task
+    from usage_presentation import merge
+    merge(tasks, task_conflicts, worktree / 'task-presentations', read, digest)
+    from usage_activity import merge as merge_activity
+    merge_activity(tasks, task_conflicts, worktree / 'task-activities', read, digest)
+    from usage_knowledge_reviews import merge_records, records_from
+    merge_records(tasks, task_conflicts, records_from(worktree))
     intervals = {key: task_intervals(task) for key, task in tasks.items()}
     sessions = collections.defaultdict(set)
     for key, task in tasks.items():

@@ -1,6 +1,7 @@
 {
   "version": 1,
   "checks": [
+    {"name":"usage-git-publish","command":["python3","tests/usage-git-publish.py","-q"],"paths":["skills/usage-report/*","tests/usage-git-publish.py","tests/fixtures/git-publish-*.json"],"timeout":120},
     {"name":"storage-maintenance","command":["python3","tests/storage-maintenance.py","-q"],"paths":["skills/storage-maintenance/*","tests/storage-maintenance.py"],"timeout":120},
     {"name":"codex-install","command":["python3","tests/codex-install.py","-q"],"paths":["linux/codex_install.py","linux/update-codex.sh","linux/steps.sh","tests/codex-install.py"],"timeout":120},
     {"name":"usage-tracker","command":["python3","tests/usage-tracker.py","-q"],"paths":["skills/usage-report/*","tests/usage-tracker.py"],"timeout":120},

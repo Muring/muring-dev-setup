@@ -1,0 +1,2403 @@
+[
+  {
+    "name": "two_identical_deduplicated",
+    "partitions": {
+      "device-a": {
+        "since": "2026-09-28T00:00:00+09:00",
+        "until": "2026-10-02T09:00:00+09:00",
+        "records": [
+          {
+            "key": "1111111111111111111111111111111111111111111111111111111111111111",
+            "observed_fields": [
+              "input",
+              "cache_read",
+              "output"
+            ],
+            "identity_quality": "strong",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "tool": "Codex",
+            "project": "example/app",
+            "model": "synthetic",
+            "effort": "medium",
+            "input": 100,
+            "cache_read": 20,
+            "cache_write": 0,
+            "output": 10,
+            "reasoning": 0
+          }
+        ],
+        "events": [
+          {
+            "key": "2222222222222222222222222222222222222222222222222222222222222222",
+            "timestamp": "2026-10-01T12:01:00+09:00",
+            "kind": "call",
+            "tool": "Codex",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "exec_command",
+            "chars": 12,
+            "repeated": false
+          },
+          {
+            "key": "3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp": "2026-10-01T12:01:01+09:00",
+            "kind": "output",
+            "tool": "Codex",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "chars": 9,
+            "large": false,
+            "truncated": false,
+            "failed": null,
+            "exit_failure_signal": false
+          },
+          {
+            "key": "44444444444444444444444444444444",
+            "kind": "kb_search",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "mode": "keyword",
+            "result_count": 1,
+            "warning_count": 0,
+            "elapsed_seconds": 0.0123
+          }
+        ],
+        "tasks": [
+          {
+            "id": "review-task",
+            "project": "example/app",
+            "status": "completed",
+            "sessions": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ],
+            "intervals": [
+              {
+                "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "project": "example/app",
+                "since": "2026-10-01T11:00:00+09:00",
+                "until": "2026-10-01T13:00:00+09:00"
+              }
+            ],
+            "verification": [
+              {
+                "name": "synthetic test",
+                "result": "pass"
+              }
+            ],
+            "rework": false,
+            "activity": {
+              "schemaVersion": 1,
+              "category": "work_execution",
+              "purpose": "예제 요청 처리",
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "tools": [
+                  "Codex"
+                ],
+                "contributions": [
+                  "구현과 검사"
+                ]
+              },
+              "humanRole": {
+                "decisions": [
+                  "범위 선택"
+                ],
+                "corrections": []
+              },
+              "outcomes": [
+                {
+                  "summary": "회귀 오류 수정",
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "verification": {
+                "checks": [
+                  {
+                    "name": "회귀 검사",
+                    "method": "격리 fixture 실행",
+                    "result": "pass",
+                    "limitation": "운영 배포 미검증",
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              },
+              "followUps": [
+                {
+                  "summary": "운영 확인",
+                  "status": "pending"
+                }
+              ],
+              "knowledge": null,
+              "timing": {
+                "startedAt": null,
+                "endedAt": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "basis": "source_record",
+                "evidenceRefs": [
+                  "test"
+                ],
+                "occurredOn": null,
+                "precision": "timestamp",
+                "labelDate": null
+              },
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ],
+              "effects": null,
+              "publicCase": null,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "presentations": [
+          {
+            "project": "example/app",
+            "id": "review-task",
+            "presentation": {
+              "title": "합성 작업",
+              "summary": "전송 검증",
+              "occurredAt": null,
+              "checks": [],
+              "followUps": [],
+              "knowledge": [],
+              "evidence": []
+            }
+          }
+        ],
+        "activities": [
+          {
+            "version": 1,
+            "project": "example/app",
+            "id": "review-task",
+            "activity": {
+              "schemaVersion": 1,
+              "category": "work_execution",
+              "purpose": "예제 요청 처리",
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "tools": [
+                  "Codex"
+                ],
+                "contributions": [
+                  "구현과 검사"
+                ]
+              },
+              "humanRole": {
+                "decisions": [
+                  "범위 선택"
+                ],
+                "corrections": []
+              },
+              "outcomes": [
+                {
+                  "summary": "회귀 오류 수정",
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "verification": {
+                "checks": [
+                  {
+                    "name": "회귀 검사",
+                    "method": "격리 fixture 실행",
+                    "result": "pass",
+                    "limitation": "운영 배포 미검증",
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              },
+              "followUps": [
+                {
+                  "summary": "운영 확인",
+                  "status": "pending"
+                }
+              ],
+              "knowledge": null,
+              "timing": {
+                "startedAt": null,
+                "endedAt": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "basis": "source_record",
+                "evidenceRefs": [
+                  "test"
+                ],
+                "occurredOn": null,
+                "precision": "timestamp",
+                "labelDate": null
+              },
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ],
+              "effects": null,
+              "publicCase": null,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "knowledgeReviews": [
+          {
+            "schemaVersion": 1,
+            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "project": "example/app",
+            "taskId": "review-task",
+            "reviewedAt": "2026-10-02T13:00:00+09:00",
+            "status": "completed",
+            "source": {
+              "knowledgeDecisionsPresent": true,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "knowledge": null,
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ]
+            },
+            "sourceDigest": "8db61986484fb3c7faeecae9d0ac92e7194f89f776a91f284febd5a25abe0013",
+            "result": {
+              "schemaVersion": 1,
+              "visibility": "private",
+              "recordingRequested": false,
+              "inferredApplications": 0,
+              "rows": [
+                {
+                  "project": "example/app",
+                  "task": "review-task",
+                  "document": "knowledge/example.md",
+                  "state": "matched",
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "searchLink": "direct"
+                }
+              ]
+            },
+            "error": null
+          }
+        ]
+      },
+      "device-b": {
+        "since": "2026-09-28T00:00:00+09:00",
+        "until": "2026-10-02T09:00:00+09:00",
+        "records": [
+          {
+            "key": "1111111111111111111111111111111111111111111111111111111111111111",
+            "observed_fields": [
+              "input",
+              "cache_read",
+              "output"
+            ],
+            "identity_quality": "strong",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "tool": "Codex",
+            "project": "example/app",
+            "model": "synthetic",
+            "effort": "medium",
+            "input": 100,
+            "cache_read": 20,
+            "cache_write": 0,
+            "output": 10,
+            "reasoning": 0
+          }
+        ],
+        "events": [
+          {
+            "key": "2222222222222222222222222222222222222222222222222222222222222222",
+            "timestamp": "2026-10-01T12:01:00+09:00",
+            "kind": "call",
+            "tool": "Codex",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "exec_command",
+            "chars": 12,
+            "repeated": false
+          },
+          {
+            "key": "3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp": "2026-10-01T12:01:01+09:00",
+            "kind": "output",
+            "tool": "Codex",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "chars": 9,
+            "large": false,
+            "truncated": false,
+            "failed": null,
+            "exit_failure_signal": false
+          },
+          {
+            "key": "44444444444444444444444444444444",
+            "kind": "kb_search",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "mode": "keyword",
+            "result_count": 1,
+            "warning_count": 0,
+            "elapsed_seconds": 0.0123
+          }
+        ],
+        "tasks": [
+          {
+            "id": "review-task",
+            "project": "example/app",
+            "status": "completed",
+            "sessions": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ],
+            "intervals": [
+              {
+                "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "project": "example/app",
+                "since": "2026-10-01T11:00:00+09:00",
+                "until": "2026-10-01T13:00:00+09:00"
+              }
+            ],
+            "verification": [
+              {
+                "name": "synthetic test",
+                "result": "pass"
+              }
+            ],
+            "rework": false,
+            "activity": {
+              "schemaVersion": 1,
+              "category": "work_execution",
+              "purpose": "예제 요청 처리",
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "tools": [
+                  "Codex"
+                ],
+                "contributions": [
+                  "구현과 검사"
+                ]
+              },
+              "humanRole": {
+                "decisions": [
+                  "범위 선택"
+                ],
+                "corrections": []
+              },
+              "outcomes": [
+                {
+                  "summary": "회귀 오류 수정",
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "verification": {
+                "checks": [
+                  {
+                    "name": "회귀 검사",
+                    "method": "격리 fixture 실행",
+                    "result": "pass",
+                    "limitation": "운영 배포 미검증",
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              },
+              "followUps": [
+                {
+                  "summary": "운영 확인",
+                  "status": "pending"
+                }
+              ],
+              "knowledge": null,
+              "timing": {
+                "startedAt": null,
+                "endedAt": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "basis": "source_record",
+                "evidenceRefs": [
+                  "test"
+                ],
+                "occurredOn": null,
+                "precision": "timestamp",
+                "labelDate": null
+              },
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ],
+              "effects": null,
+              "publicCase": null,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "presentations": [
+          {
+            "project": "example/app",
+            "id": "review-task",
+            "presentation": {
+              "title": "합성 작업",
+              "summary": "전송 검증",
+              "occurredAt": null,
+              "checks": [],
+              "followUps": [],
+              "knowledge": [],
+              "evidence": []
+            }
+          }
+        ],
+        "activities": [
+          {
+            "version": 1,
+            "project": "example/app",
+            "id": "review-task",
+            "activity": {
+              "schemaVersion": 1,
+              "category": "work_execution",
+              "purpose": "예제 요청 처리",
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "tools": [
+                  "Codex"
+                ],
+                "contributions": [
+                  "구현과 검사"
+                ]
+              },
+              "humanRole": {
+                "decisions": [
+                  "범위 선택"
+                ],
+                "corrections": []
+              },
+              "outcomes": [
+                {
+                  "summary": "회귀 오류 수정",
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "verification": {
+                "checks": [
+                  {
+                    "name": "회귀 검사",
+                    "method": "격리 fixture 실행",
+                    "result": "pass",
+                    "limitation": "운영 배포 미검증",
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              },
+              "followUps": [
+                {
+                  "summary": "운영 확인",
+                  "status": "pending"
+                }
+              ],
+              "knowledge": null,
+              "timing": {
+                "startedAt": null,
+                "endedAt": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "basis": "source_record",
+                "evidenceRefs": [
+                  "test"
+                ],
+                "occurredOn": null,
+                "precision": "timestamp",
+                "labelDate": null
+              },
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ],
+              "effects": null,
+              "publicCase": null,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "knowledgeReviews": [
+          {
+            "schemaVersion": 1,
+            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "project": "example/app",
+            "taskId": "review-task",
+            "reviewedAt": "2026-10-02T13:00:00+09:00",
+            "status": "completed",
+            "source": {
+              "knowledgeDecisionsPresent": true,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "knowledge": null,
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ]
+            },
+            "sourceDigest": "8db61986484fb3c7faeecae9d0ac92e7194f89f776a91f284febd5a25abe0013",
+            "result": {
+              "schemaVersion": 1,
+              "visibility": "private",
+              "recordingRequested": false,
+              "inferredApplications": 0,
+              "rows": [
+                {
+                  "project": "example/app",
+                  "task": "review-task",
+                  "document": "knowledge/example.md",
+                  "state": "matched",
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "searchLink": "direct"
+                }
+              ]
+            },
+            "error": null
+          }
+        ]
+      }
+    },
+    "state": "updated",
+    "expectedYears": [
+      {
+        "year": 2026,
+        "weeks": [
+          {
+            "week": "2026-09-28",
+            "ended": true,
+            "observed": true,
+            "partial": true,
+            "totals": {
+              "input": 100,
+              "cache_read": 20,
+              "cache_write": 0,
+              "output": 10,
+              "reasoning": 0,
+              "responses": 1,
+              "total": 110,
+              "non_cache_read_input": 80
+            },
+            "groups": [
+              {
+                "project": "example/app",
+                "tool": "Codex",
+                "model": "synthetic",
+                "effort": "medium",
+                "totals": {
+                  "input": 100,
+                  "cache_read": 20,
+                  "cache_write": 0,
+                  "output": 10,
+                  "reasoning": 0,
+                  "responses": 1,
+                  "total": 110,
+                  "non_cache_read_input": 80
+                }
+              }
+            ],
+            "states": {
+              "completed": {
+                "input": 100,
+                "cache_read": 20,
+                "cache_write": 0,
+                "output": 10,
+                "reasoning": 0,
+                "responses": 1,
+                "total": 110,
+                "non_cache_read_input": 80
+              }
+            },
+            "diagnostics": {
+              "calls": 1,
+              "outputs": 1,
+              "output_chars": 9,
+              "large_outputs": 0,
+              "truncations": 0,
+              "repeated_calls": 0,
+              "known_failed_outputs": 0,
+              "unknown_output_outcomes": 1,
+              "kb_searches": 1,
+              "kb_empty_searches": 0,
+              "kb_selections": 0,
+              "kb_applications": 0,
+              "kb_search_mentions": 0,
+              "compactions": 0
+            }
+          },
+          {
+            "week": "2026-10-05",
+            "ended": false,
+            "observed": false,
+            "partial": true,
+            "totals": {
+              "input": 0,
+              "cache_read": 0,
+              "cache_write": 0,
+              "output": 0,
+              "reasoning": 0,
+              "responses": 0,
+              "total": 0,
+              "non_cache_read_input": 0
+            },
+            "groups": [],
+            "states": {},
+            "diagnostics": {
+              "calls": 0,
+              "outputs": 0,
+              "output_chars": 0,
+              "large_outputs": 0,
+              "truncations": 0,
+              "repeated_calls": 0,
+              "known_failed_outputs": 0,
+              "unknown_output_outcomes": 0,
+              "kb_searches": 0,
+              "kb_empty_searches": 0,
+              "kb_selections": 0,
+              "kb_applications": 0,
+              "kb_search_mentions": 0,
+              "compactions": 0
+            }
+          }
+        ],
+        "devices": [
+          {
+            "device": "device-a",
+            "since": "2026-09-28T00:00:00+09:00",
+            "until": "2026-10-02T09:00:00+09:00"
+          },
+          {
+            "device": "device-b",
+            "since": "2026-09-28T00:00:00+09:00",
+            "until": "2026-10-02T09:00:00+09:00"
+          }
+        ],
+        "tasks": [
+          {
+            "id": "review-task",
+            "project": "example/app",
+            "type": null,
+            "status": "completed",
+            "verification": [
+              {
+                "name": "synthetic test",
+                "result": "pass"
+              }
+            ],
+            "rework": false,
+            "conflict": false,
+            "totals": {
+              "input": 100,
+              "cache_read": 20,
+              "cache_write": 0,
+              "output": 10,
+              "reasoning": 0,
+              "responses": 1,
+              "total": 110,
+              "non_cache_read_input": 80
+            },
+            "presentation": {
+              "checks": [],
+              "evidence": [],
+              "followUps": [],
+              "knowledge": [],
+              "occurredAt": null,
+              "summary": "전송 검증",
+              "title": "합성 작업"
+            },
+            "activity": {
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "contributions": [
+                  "구현과 검사"
+                ],
+                "tools": [
+                  "Codex"
+                ]
+              },
+              "category": "work_execution",
+              "effects": null,
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "note": "가상 테스트 근거",
+                  "reference": "private/example-test.log"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "note": "가상 검토 승인",
+                  "reference": "private/example-review"
+                }
+              ],
+              "followUps": [
+                {
+                  "status": "pending",
+                  "summary": "운영 확인"
+                }
+              ],
+              "humanRole": {
+                "corrections": [],
+                "decisions": [
+                  "범위 선택"
+                ]
+              },
+              "knowledge": null,
+              "knowledgeDecisions": [
+                {
+                  "decision": "applied",
+                  "document": "knowledge/example.md",
+                  "evidenceRefs": [
+                    "test"
+                  ],
+                  "id": "decision-1",
+                  "plannedUse": "입력 검증 구현",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "searchRefs": [],
+                  "selection": "direct",
+                  "verification": {
+                    "evidenceRefs": [
+                      "test"
+                    ],
+                    "method": "격리 회귀",
+                    "note": null,
+                    "result": "pass"
+                  }
+                }
+              ],
+              "outcomes": [
+                {
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ],
+                  "summary": "회귀 오류 수정"
+                }
+              ],
+              "publicCase": null,
+              "purpose": "예제 요청 처리",
+              "schemaVersion": 1,
+              "timing": {
+                "basis": "source_record",
+                "endedAt": null,
+                "evidenceRefs": [
+                  "test"
+                ],
+                "labelDate": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "occurredOn": null,
+                "precision": "timestamp",
+                "startedAt": null
+              },
+              "verification": {
+                "checks": [
+                  {
+                    "evidenceRefs": [
+                      "test"
+                    ],
+                    "limitation": "운영 배포 미검증",
+                    "method": "격리 fixture 실행",
+                    "name": "회귀 검사",
+                    "result": "pass"
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              }
+            },
+            "knowledgeReviews": [
+              {
+                "error": null,
+                "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "project": "example/app",
+                "result": {
+                  "inferredApplications": 0,
+                  "recordingRequested": false,
+                  "rows": [
+                    {
+                      "decision": "applied",
+                      "document": "knowledge/example.md",
+                      "project": "example/app",
+                      "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                      "searchLink": "direct",
+                      "state": "matched",
+                      "task": "review-task"
+                    }
+                  ],
+                  "schemaVersion": 1,
+                  "visibility": "private"
+                },
+                "reviewedAt": "2026-10-02T13:00:00+09:00",
+                "schemaVersion": 1,
+                "source": {
+                  "evidence": [
+                    {
+                      "id": "test",
+                      "kind": "tool_result",
+                      "note": "가상 테스트 근거",
+                      "reference": "private/example-test.log"
+                    },
+                    {
+                      "id": "user",
+                      "kind": "user_statement",
+                      "note": "가상 검토 승인",
+                      "reference": "private/example-review"
+                    }
+                  ],
+                  "knowledge": null,
+                  "knowledgeDecisions": [
+                    {
+                      "decision": "applied",
+                      "document": "knowledge/example.md",
+                      "evidenceRefs": [
+                        "test"
+                      ],
+                      "id": "decision-1",
+                      "plannedUse": "입력 검증 구현",
+                      "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                      "searchRefs": [],
+                      "selection": "direct",
+                      "verification": {
+                        "evidenceRefs": [
+                          "test"
+                        ],
+                        "method": "격리 회귀",
+                        "note": null,
+                        "result": "pass"
+                      }
+                    }
+                  ],
+                  "knowledgeDecisionsPresent": true
+                },
+                "sourceDigest": "8db61986484fb3c7faeecae9d0ac92e7194f89f776a91f284febd5a25abe0013",
+                "status": "completed",
+                "taskId": "review-task"
+              }
+            ]
+          }
+        ],
+        "quality": {
+          "problems": [
+            {
+              "device": "device-a",
+              "code": "stale_device"
+            },
+            {
+              "device": "device-b",
+              "code": "stale_device"
+            }
+          ],
+          "fallback_identities": 0,
+          "task_conflicts": 0,
+          "ambiguous_task_responses": 0,
+          "comparison": "withheld"
+        },
+        "fieldObservations": {
+          "input": 1,
+          "cache_read": 1,
+          "cache_write": 0,
+          "output": 1,
+          "reasoning": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "same_identity_different_year",
+    "partitions": {
+      "device-a": {
+        "since": "2026-09-28T00:00:00+09:00",
+        "until": "2026-10-02T09:00:00+09:00",
+        "records": [
+          {
+            "key": "1111111111111111111111111111111111111111111111111111111111111111",
+            "observed_fields": [
+              "input",
+              "cache_read",
+              "output"
+            ],
+            "identity_quality": "strong",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "tool": "Codex",
+            "project": "example/app",
+            "model": "synthetic",
+            "effort": "medium",
+            "input": 100,
+            "cache_read": 20,
+            "cache_write": 0,
+            "output": 10,
+            "reasoning": 0
+          }
+        ],
+        "events": [
+          {
+            "key": "2222222222222222222222222222222222222222222222222222222222222222",
+            "timestamp": "2026-10-01T12:01:00+09:00",
+            "kind": "call",
+            "tool": "Codex",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "exec_command",
+            "chars": 12,
+            "repeated": false
+          },
+          {
+            "key": "3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp": "2026-10-01T12:01:01+09:00",
+            "kind": "output",
+            "tool": "Codex",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "chars": 9,
+            "large": false,
+            "truncated": false,
+            "failed": null,
+            "exit_failure_signal": false
+          },
+          {
+            "key": "44444444444444444444444444444444",
+            "kind": "kb_search",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "mode": "keyword",
+            "result_count": 1,
+            "warning_count": 0,
+            "elapsed_seconds": 0.0123
+          }
+        ],
+        "tasks": [
+          {
+            "id": "review-task",
+            "project": "example/app",
+            "status": "completed",
+            "sessions": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ],
+            "intervals": [
+              {
+                "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "project": "example/app",
+                "since": "2026-10-01T11:00:00+09:00",
+                "until": "2026-10-01T13:00:00+09:00"
+              }
+            ],
+            "verification": [
+              {
+                "name": "synthetic test",
+                "result": "pass"
+              }
+            ],
+            "rework": false,
+            "activity": {
+              "schemaVersion": 1,
+              "category": "work_execution",
+              "purpose": "예제 요청 처리",
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "tools": [
+                  "Codex"
+                ],
+                "contributions": [
+                  "구현과 검사"
+                ]
+              },
+              "humanRole": {
+                "decisions": [
+                  "범위 선택"
+                ],
+                "corrections": []
+              },
+              "outcomes": [
+                {
+                  "summary": "회귀 오류 수정",
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "verification": {
+                "checks": [
+                  {
+                    "name": "회귀 검사",
+                    "method": "격리 fixture 실행",
+                    "result": "pass",
+                    "limitation": "운영 배포 미검증",
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              },
+              "followUps": [
+                {
+                  "summary": "운영 확인",
+                  "status": "pending"
+                }
+              ],
+              "knowledge": null,
+              "timing": {
+                "startedAt": null,
+                "endedAt": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "basis": "source_record",
+                "evidenceRefs": [
+                  "test"
+                ],
+                "occurredOn": null,
+                "precision": "timestamp",
+                "labelDate": null
+              },
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ],
+              "effects": null,
+              "publicCase": null,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "presentations": [
+          {
+            "project": "example/app",
+            "id": "review-task",
+            "presentation": {
+              "title": "합성 작업",
+              "summary": "전송 검증",
+              "occurredAt": null,
+              "checks": [],
+              "followUps": [],
+              "knowledge": [],
+              "evidence": []
+            }
+          }
+        ],
+        "activities": [
+          {
+            "version": 1,
+            "project": "example/app",
+            "id": "review-task",
+            "activity": {
+              "schemaVersion": 1,
+              "category": "work_execution",
+              "purpose": "예제 요청 처리",
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "tools": [
+                  "Codex"
+                ],
+                "contributions": [
+                  "구현과 검사"
+                ]
+              },
+              "humanRole": {
+                "decisions": [
+                  "범위 선택"
+                ],
+                "corrections": []
+              },
+              "outcomes": [
+                {
+                  "summary": "회귀 오류 수정",
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "verification": {
+                "checks": [
+                  {
+                    "name": "회귀 검사",
+                    "method": "격리 fixture 실행",
+                    "result": "pass",
+                    "limitation": "운영 배포 미검증",
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              },
+              "followUps": [
+                {
+                  "summary": "운영 확인",
+                  "status": "pending"
+                }
+              ],
+              "knowledge": null,
+              "timing": {
+                "startedAt": null,
+                "endedAt": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "basis": "source_record",
+                "evidenceRefs": [
+                  "test"
+                ],
+                "occurredOn": null,
+                "precision": "timestamp",
+                "labelDate": null
+              },
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ],
+              "effects": null,
+              "publicCase": null,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "knowledgeReviews": [
+          {
+            "schemaVersion": 1,
+            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "project": "example/app",
+            "taskId": "review-task",
+            "reviewedAt": "2026-10-02T13:00:00+09:00",
+            "status": "completed",
+            "source": {
+              "knowledgeDecisionsPresent": true,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "knowledge": null,
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ]
+            },
+            "sourceDigest": "8db61986484fb3c7faeecae9d0ac92e7194f89f776a91f284febd5a25abe0013",
+            "result": {
+              "schemaVersion": 1,
+              "visibility": "private",
+              "recordingRequested": false,
+              "inferredApplications": 0,
+              "rows": [
+                {
+                  "project": "example/app",
+                  "task": "review-task",
+                  "document": "knowledge/example.md",
+                  "state": "matched",
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "searchLink": "direct"
+                }
+              ]
+            },
+            "error": null
+          }
+        ]
+      },
+      "device-b": {
+        "since": "2026-09-28T00:00:00+09:00",
+        "until": "2027-01-12T09:00:00+09:00",
+        "records": [
+          {
+            "key": "1111111111111111111111111111111111111111111111111111111111111111",
+            "observed_fields": [
+              "input",
+              "cache_read",
+              "output"
+            ],
+            "identity_quality": "strong",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "timestamp": "2027-01-11T12:00:00+09:00",
+            "tool": "Codex",
+            "project": "example/app",
+            "model": "synthetic",
+            "effort": "medium",
+            "input": 100,
+            "cache_read": 20,
+            "cache_write": 0,
+            "output": 10,
+            "reasoning": 0
+          }
+        ],
+        "events": [],
+        "tasks": [],
+        "presentations": [],
+        "activities": [],
+        "knowledgeReviews": []
+      }
+    },
+    "state": "held",
+    "errorType": "ValueError"
+  },
+  {
+    "name": "same_identity_different_year_reverse",
+    "partitions": {
+      "device-b": {
+        "since": "2026-09-28T00:00:00+09:00",
+        "until": "2027-01-12T09:00:00+09:00",
+        "records": [
+          {
+            "key": "1111111111111111111111111111111111111111111111111111111111111111",
+            "observed_fields": [
+              "input",
+              "cache_read",
+              "output"
+            ],
+            "identity_quality": "strong",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "timestamp": "2027-01-11T12:00:00+09:00",
+            "tool": "Codex",
+            "project": "example/app",
+            "model": "synthetic",
+            "effort": "medium",
+            "input": 100,
+            "cache_read": 20,
+            "cache_write": 0,
+            "output": 10,
+            "reasoning": 0
+          }
+        ],
+        "events": [],
+        "tasks": [],
+        "presentations": [],
+        "activities": [],
+        "knowledgeReviews": []
+      },
+      "device-a": {
+        "since": "2026-09-28T00:00:00+09:00",
+        "until": "2026-10-02T09:00:00+09:00",
+        "records": [
+          {
+            "key": "1111111111111111111111111111111111111111111111111111111111111111",
+            "observed_fields": [
+              "input",
+              "cache_read",
+              "output"
+            ],
+            "identity_quality": "strong",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "tool": "Codex",
+            "project": "example/app",
+            "model": "synthetic",
+            "effort": "medium",
+            "input": 100,
+            "cache_read": 20,
+            "cache_write": 0,
+            "output": 10,
+            "reasoning": 0
+          }
+        ],
+        "events": [
+          {
+            "key": "2222222222222222222222222222222222222222222222222222222222222222",
+            "timestamp": "2026-10-01T12:01:00+09:00",
+            "kind": "call",
+            "tool": "Codex",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "exec_command",
+            "chars": 12,
+            "repeated": false
+          },
+          {
+            "key": "3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp": "2026-10-01T12:01:01+09:00",
+            "kind": "output",
+            "tool": "Codex",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "chars": 9,
+            "large": false,
+            "truncated": false,
+            "failed": null,
+            "exit_failure_signal": false
+          },
+          {
+            "key": "44444444444444444444444444444444",
+            "kind": "kb_search",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "mode": "keyword",
+            "result_count": 1,
+            "warning_count": 0,
+            "elapsed_seconds": 0.0123
+          }
+        ],
+        "tasks": [
+          {
+            "id": "review-task",
+            "project": "example/app",
+            "status": "completed",
+            "sessions": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ],
+            "intervals": [
+              {
+                "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "project": "example/app",
+                "since": "2026-10-01T11:00:00+09:00",
+                "until": "2026-10-01T13:00:00+09:00"
+              }
+            ],
+            "verification": [
+              {
+                "name": "synthetic test",
+                "result": "pass"
+              }
+            ],
+            "rework": false,
+            "activity": {
+              "schemaVersion": 1,
+              "category": "work_execution",
+              "purpose": "예제 요청 처리",
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "tools": [
+                  "Codex"
+                ],
+                "contributions": [
+                  "구현과 검사"
+                ]
+              },
+              "humanRole": {
+                "decisions": [
+                  "범위 선택"
+                ],
+                "corrections": []
+              },
+              "outcomes": [
+                {
+                  "summary": "회귀 오류 수정",
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "verification": {
+                "checks": [
+                  {
+                    "name": "회귀 검사",
+                    "method": "격리 fixture 실행",
+                    "result": "pass",
+                    "limitation": "운영 배포 미검증",
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              },
+              "followUps": [
+                {
+                  "summary": "운영 확인",
+                  "status": "pending"
+                }
+              ],
+              "knowledge": null,
+              "timing": {
+                "startedAt": null,
+                "endedAt": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "basis": "source_record",
+                "evidenceRefs": [
+                  "test"
+                ],
+                "occurredOn": null,
+                "precision": "timestamp",
+                "labelDate": null
+              },
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ],
+              "effects": null,
+              "publicCase": null,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "presentations": [
+          {
+            "project": "example/app",
+            "id": "review-task",
+            "presentation": {
+              "title": "합성 작업",
+              "summary": "전송 검증",
+              "occurredAt": null,
+              "checks": [],
+              "followUps": [],
+              "knowledge": [],
+              "evidence": []
+            }
+          }
+        ],
+        "activities": [
+          {
+            "version": 1,
+            "project": "example/app",
+            "id": "review-task",
+            "activity": {
+              "schemaVersion": 1,
+              "category": "work_execution",
+              "purpose": "예제 요청 처리",
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "tools": [
+                  "Codex"
+                ],
+                "contributions": [
+                  "구현과 검사"
+                ]
+              },
+              "humanRole": {
+                "decisions": [
+                  "범위 선택"
+                ],
+                "corrections": []
+              },
+              "outcomes": [
+                {
+                  "summary": "회귀 오류 수정",
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "verification": {
+                "checks": [
+                  {
+                    "name": "회귀 검사",
+                    "method": "격리 fixture 실행",
+                    "result": "pass",
+                    "limitation": "운영 배포 미검증",
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              },
+              "followUps": [
+                {
+                  "summary": "운영 확인",
+                  "status": "pending"
+                }
+              ],
+              "knowledge": null,
+              "timing": {
+                "startedAt": null,
+                "endedAt": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "basis": "source_record",
+                "evidenceRefs": [
+                  "test"
+                ],
+                "occurredOn": null,
+                "precision": "timestamp",
+                "labelDate": null
+              },
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ],
+              "effects": null,
+              "publicCase": null,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "knowledgeReviews": [
+          {
+            "schemaVersion": 1,
+            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "project": "example/app",
+            "taskId": "review-task",
+            "reviewedAt": "2026-10-02T13:00:00+09:00",
+            "status": "completed",
+            "source": {
+              "knowledgeDecisionsPresent": true,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "knowledge": null,
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ]
+            },
+            "sourceDigest": "8db61986484fb3c7faeecae9d0ac92e7194f89f776a91f284febd5a25abe0013",
+            "result": {
+              "schemaVersion": 1,
+              "visibility": "private",
+              "recordingRequested": false,
+              "inferredApplications": 0,
+              "rows": [
+                {
+                  "project": "example/app",
+                  "task": "review-task",
+                  "document": "knowledge/example.md",
+                  "state": "matched",
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "searchLink": "direct"
+                }
+              ]
+            },
+            "error": null
+          }
+        ]
+      }
+    },
+    "state": "held",
+    "errorType": "ValueError"
+  },
+  {
+    "name": "incremental_cross_year_conflict",
+    "partitions": {
+      "device-a": {
+        "since": "2026-09-28T00:00:00+09:00",
+        "until": "2026-10-02T09:00:00+09:00",
+        "records": [
+          {
+            "key": "1111111111111111111111111111111111111111111111111111111111111111",
+            "observed_fields": [
+              "input",
+              "cache_read",
+              "output"
+            ],
+            "identity_quality": "strong",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "tool": "Codex",
+            "project": "example/app",
+            "model": "synthetic",
+            "effort": "medium",
+            "input": 100,
+            "cache_read": 20,
+            "cache_write": 0,
+            "output": 10,
+            "reasoning": 0
+          }
+        ],
+        "events": [
+          {
+            "key": "2222222222222222222222222222222222222222222222222222222222222222",
+            "timestamp": "2026-10-01T12:01:00+09:00",
+            "kind": "call",
+            "tool": "Codex",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "exec_command",
+            "chars": 12,
+            "repeated": false
+          },
+          {
+            "key": "3333333333333333333333333333333333333333333333333333333333333333",
+            "timestamp": "2026-10-01T12:01:01+09:00",
+            "kind": "output",
+            "tool": "Codex",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "chars": 9,
+            "large": false,
+            "truncated": false,
+            "failed": null,
+            "exit_failure_signal": false
+          },
+          {
+            "key": "44444444444444444444444444444444",
+            "kind": "kb_search",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "mode": "keyword",
+            "result_count": 1,
+            "warning_count": 0,
+            "elapsed_seconds": 0.0123
+          }
+        ],
+        "tasks": [
+          {
+            "id": "review-task",
+            "project": "example/app",
+            "status": "completed",
+            "sessions": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ],
+            "intervals": [
+              {
+                "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "project": "example/app",
+                "since": "2026-10-01T11:00:00+09:00",
+                "until": "2026-10-01T13:00:00+09:00"
+              }
+            ],
+            "verification": [
+              {
+                "name": "synthetic test",
+                "result": "pass"
+              }
+            ],
+            "rework": false,
+            "activity": {
+              "schemaVersion": 1,
+              "category": "work_execution",
+              "purpose": "예제 요청 처리",
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "tools": [
+                  "Codex"
+                ],
+                "contributions": [
+                  "구현과 검사"
+                ]
+              },
+              "humanRole": {
+                "decisions": [
+                  "범위 선택"
+                ],
+                "corrections": []
+              },
+              "outcomes": [
+                {
+                  "summary": "회귀 오류 수정",
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "verification": {
+                "checks": [
+                  {
+                    "name": "회귀 검사",
+                    "method": "격리 fixture 실행",
+                    "result": "pass",
+                    "limitation": "운영 배포 미검증",
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              },
+              "followUps": [
+                {
+                  "summary": "운영 확인",
+                  "status": "pending"
+                }
+              ],
+              "knowledge": null,
+              "timing": {
+                "startedAt": null,
+                "endedAt": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "basis": "source_record",
+                "evidenceRefs": [
+                  "test"
+                ],
+                "occurredOn": null,
+                "precision": "timestamp",
+                "labelDate": null
+              },
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ],
+              "effects": null,
+              "publicCase": null,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "presentations": [
+          {
+            "project": "example/app",
+            "id": "review-task",
+            "presentation": {
+              "title": "합성 작업",
+              "summary": "전송 검증",
+              "occurredAt": null,
+              "checks": [],
+              "followUps": [],
+              "knowledge": [],
+              "evidence": []
+            }
+          }
+        ],
+        "activities": [
+          {
+            "version": 1,
+            "project": "example/app",
+            "id": "review-task",
+            "activity": {
+              "schemaVersion": 1,
+              "category": "work_execution",
+              "purpose": "예제 요청 처리",
+              "actions": [
+                "예제 구현"
+              ],
+              "aiRole": {
+                "tools": [
+                  "Codex"
+                ],
+                "contributions": [
+                  "구현과 검사"
+                ]
+              },
+              "humanRole": {
+                "decisions": [
+                  "범위 선택"
+                ],
+                "corrections": []
+              },
+              "outcomes": [
+                {
+                  "summary": "회귀 오류 수정",
+                  "artifact": "private/example.patch",
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "verification": {
+                "checks": [
+                  {
+                    "name": "회귀 검사",
+                    "method": "격리 fixture 실행",
+                    "result": "pass",
+                    "limitation": "운영 배포 미검증",
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  }
+                ],
+                "unverified": [
+                  "운영 배포"
+                ]
+              },
+              "followUps": [
+                {
+                  "summary": "운영 확인",
+                  "status": "pending"
+                }
+              ],
+              "knowledge": null,
+              "timing": {
+                "startedAt": null,
+                "endedAt": null,
+                "occurredAt": "2026-10-01T15:00:00Z",
+                "basis": "source_record",
+                "evidenceRefs": [
+                  "test"
+                ],
+                "occurredOn": null,
+                "precision": "timestamp",
+                "labelDate": null
+              },
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ],
+              "effects": null,
+              "publicCase": null,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "knowledgeReviews": [
+          {
+            "schemaVersion": 1,
+            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "project": "example/app",
+            "taskId": "review-task",
+            "reviewedAt": "2026-10-02T13:00:00+09:00",
+            "status": "completed",
+            "source": {
+              "knowledgeDecisionsPresent": true,
+              "knowledgeDecisions": [
+                {
+                  "id": "decision-1",
+                  "document": "knowledge/example.md",
+                  "selection": "direct",
+                  "searchRefs": [],
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "plannedUse": "입력 검증 구현",
+                  "verification": {
+                    "method": "격리 회귀",
+                    "result": "pass",
+                    "note": null,
+                    "evidenceRefs": [
+                      "test"
+                    ]
+                  },
+                  "evidenceRefs": [
+                    "test"
+                  ]
+                }
+              ],
+              "knowledge": null,
+              "evidence": [
+                {
+                  "id": "test",
+                  "kind": "tool_result",
+                  "reference": "private/example-test.log",
+                  "note": "가상 테스트 근거"
+                },
+                {
+                  "id": "user",
+                  "kind": "user_statement",
+                  "reference": "private/example-review",
+                  "note": "가상 검토 승인"
+                }
+              ]
+            },
+            "sourceDigest": "8db61986484fb3c7faeecae9d0ac92e7194f89f776a91f284febd5a25abe0013",
+            "result": {
+              "schemaVersion": 1,
+              "visibility": "private",
+              "recordingRequested": false,
+              "inferredApplications": 0,
+              "rows": [
+                {
+                  "project": "example/app",
+                  "task": "review-task",
+                  "document": "knowledge/example.md",
+                  "state": "matched",
+                  "decision": "applied",
+                  "reason": "실제 수정에 기준을 적용하고 회귀 확인",
+                  "searchLink": "direct"
+                }
+              ]
+            },
+            "error": null
+          }
+        ]
+      },
+      "device-b": {
+        "since": "2026-09-28T00:00:00+09:00",
+        "until": "2027-01-12T09:00:00+09:00",
+        "records": [
+          {
+            "key": "5555555555555555555555555555555555555555555555555555555555555555",
+            "observed_fields": [
+              "input",
+              "cache_read",
+              "output"
+            ],
+            "identity_quality": "strong",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "timestamp": "2026-10-01T12:00:00+09:00",
+            "tool": "Codex",
+            "project": "example/app",
+            "model": "synthetic",
+            "effort": "medium",
+            "input": 200,
+            "cache_read": 20,
+            "cache_write": 0,
+            "output": 10,
+            "reasoning": 0
+          },
+          {
+            "key": "1111111111111111111111111111111111111111111111111111111111111111",
+            "observed_fields": [
+              "input",
+              "cache_read",
+              "output"
+            ],
+            "identity_quality": "strong",
+            "session": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "timestamp": "2027-01-11T12:00:00+09:00",
+            "tool": "Codex",
+            "project": "example/app",
+            "model": "synthetic",
+            "effort": "medium",
+            "input": 100,
+            "cache_read": 20,
+            "cache_write": 0,
+            "output": 10,
+            "reasoning": 0
+          }
+        ],
+        "events": [],
+        "tasks": [],
+        "presentations": [],
+        "activities": [],
+        "knowledgeReviews": []
+      }
+    },
+    "state": "held",
+    "errorType": "ValueError"
+  }
+]

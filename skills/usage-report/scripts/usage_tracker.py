@@ -74,6 +74,69 @@ def initialize(args):
     atomic(target / 'devices' / device / 'registration.json', dict(schema=SCHEMA, device=device, registered_at=now().isoformat(), platform=platform.system(), tools=['Codex', 'Claude']))
     return dict(config=str(config_path), device=device, state='prepared_not_enabled')
 
+def validate_presentations(target, index=False, previous=None):
+    """Validate the exact staged snapshot as well as the working copy."""
+    from usage_presentation import validate, merge_supplements
+    import usage_activity
+    import usage_knowledge_reviews as reviews
+    records=[]
+    if index:
+        for line in git(target,'ls-files','--stage','-z').split('\0'):
+            if not line:continue
+            meta,path=line.split('\t',1)
+            if path in ('task-presentations','task-activities'):raise ValueError('presentation root must be a directory')
+            if not (path.startswith(('task-presentations/','task-activities/')) or re.fullmatch(r'devices/[^/]+/tasks/[^/]+\.json',path) or re.match(r'devices/[^/]+/knowledge-reviews(?:/|$)',path)):continue
+            mode,oid,stage=meta.split()
+            if mode not in ('100644','100755') or stage!='0':raise ValueError('invalid presentation/task index entry')
+            records.append((path,json.loads(git(target,'show',':'+path))))
+    else:
+        paths=list(target.glob('devices/*/tasks/*.json'))
+        for directory in (target/'task-presentations',target/'task-activities'):
+            if directory.is_symlink() or (directory.exists() and not directory.is_dir()):raise ValueError('supplement root must be a real directory')
+            if directory.exists():paths+=list(directory.rglob('*'))
+        for p in paths:
+            if p.is_symlink():raise ValueError('presentation/task symlink forbidden')
+            if p.is_dir():raise ValueError('nested presentation paths forbidden')
+            records.append((p.relative_to(target).as_posix(),read(p)))
+        records.extend(reviews.records_from(target))
+    if previous is not None:
+        current=dict(records)
+        for path in git(target,'ls-tree','-r','--name-only',previous).splitlines():
+            if re.match(r'devices/[^/]+/knowledge-reviews(?:/|$)',path):
+                old=json.loads(git(target,'show',previous+':'+path))
+                if current.get(path) != old:
+                    raise ValueError('Existing knowledge-review attempts must be preserved')
+                continue
+            if not (path.startswith('task-activities/') or re.fullmatch(r'devices/[^/]+/tasks/[^/]+\.json',path)):continue
+            old=json.loads(git(target,'show',previous+':'+path))
+            if 'activity' in old:
+                usage_activity.validate_transition(old['activity'],current.get(path,{}).get('activity'))
+    tasks={};conflicts=set();supplements=[];activities=[];review_records=[]
+    for path,data in records:
+        if re.match(r'devices/[^/]+/knowledge-reviews(?:/|$)',path):
+            review_records.append((path,data));continue
+        if path.startswith('task-activities/'):
+            if not re.fullmatch(r'task-activities/[0-9a-f]{64}\.json',path):raise ValueError('invalid activity path')
+            activities.append((path.split('/')[-1],data));continue
+        if path.startswith('task-presentations/'):
+            if not re.fullmatch(r'task-presentations/[0-9a-f]{64}\.json',path):raise ValueError('invalid presentation path')
+            supplements.append((path.split('/')[-1],data));continue
+        key=digest([data['project'],data['id']])
+        if 'knowledgeReviews' in data:
+            raise ValueError('knowledgeReviews must come from immutable review records')
+        if 'presentation' in data:validate(data['presentation'])
+        if 'activity' in data:
+            usage_activity.validate(data['activity'],data['project'],data['id'])
+            if data.get('conflict'):raise ValueError('activity task conflict')
+        if key in tasks and tasks[key]!=data:
+            if any(field in tasks[key] or field in data for field in ('presentation','activity')):raise ValueError('presentation task conflict')
+            conflicts.add(key)
+        else:tasks[key]=data
+    merge_supplements(tasks,conflicts,supplements,digest)
+    usage_activity.merge_supplements(tasks,conflicts,activities,digest)
+    usage_activity.validate_collection(tasks.values())
+    reviews.merge_records(tasks,conflicts,review_records)
+
 def guard(config):
     target = Path(config['worktree']).resolve()
     if target == Path(config['repo']).resolve():
@@ -95,20 +158,29 @@ def guard(config):
     untracked = git(target, 'ls-files', '--others', '--exclude-standard', '-z').split('\0')
     staged = git(target, 'diff', '--cached', '--name-only', '-z').split('\0')
     for path in changed + untracked + staged:
+        if re.fullmatch(r'task-(?:presentations|activities)/[0-9a-f]{64}\.json', path) and not (target / path).is_symlink():
+            continue
         if path and (not path.startswith(own) or not path.endswith('.json')):
             raise ValueError('unexpected modified file in automation worktree')
     for path in (target / own).rglob('*'):
         if path.is_symlink():
             raise ValueError('symlinks forbidden in published data')
+    validate_presentations(target,previous="HEAD")
+    validate_presentations(target,index=True,previous="HEAD")
     return target
 
 def sync(config):
     target = guard(config)
     own = f"devices/{config['device']}"
-    git(target, 'add', '--', own)
+    paths=[own]
+    for name in ('task-presentations','task-activities'):
+        if (target/name).exists() or git(target,'ls-files','--',name):paths.append(name)
+    git(target, 'add', '--', *paths)
+    validate_presentations(target,index=True)
     if git(target, 'diff', '--cached', '--name-only'):
         git(target, '-c', 'core.hooksPath=/dev/null' if os.name != 'nt' else 'core.hooksPath=NUL', 'commit', '-m', f"usage: update {config['device']}")
     for attempt in range(3):
+        previous=git(target, "rev-parse", "HEAD")
         git(target, 'fetch', 'origin')
         if git(target, 'for-each-ref', '--format=%(refname)', 'refs/remotes/origin/usage-data'):
             remote_changes = git(target, 'diff', '--name-only', 'HEAD...origin/usage-data').splitlines()
@@ -120,9 +192,13 @@ def sync(config):
             except subprocess.CalledProcessError:
                 git(target, 'merge', '--abort')
                 raise
+        # Cross-file conflicts (a remote task and a local supplement) can
+        # merge textually. Validate the merged snapshot before any push.
+        validate_presentations(target,previous=previous)
+        validate_presentations(target,index=True,previous=previous)
         try:
             git(target, 'push', 'origin', 'HEAD:refs/heads/usage-data')
-            return dict(state='ok', last_attempt=now().isoformat(), last_success=now().isoformat(), attempts=attempt + 1)
+            return dict(state='ok', revision=git(target,'rev-parse','HEAD'), last_attempt=now().isoformat(), last_success=now().isoformat(), attempts=attempt + 1)
         except subprocess.CalledProcessError:
             if attempt == 2:
                 raise
@@ -312,6 +388,11 @@ def scheduler(config, config_path, enable=False):
         # launchd calendar is local time; the runner's data boundaries remain KST.
         value = dict(Label='local.ai-usage', ProgramArguments=args, RunAtLoad=True, StartInterval=900,
                      StandardOutPath=str(state / 'stdout.log'), StandardErrorPath=str(state / 'stderr.log'))
+        if config.get('publisher',{}).get('mode') == 'git-workflow':
+            value.pop('StartInterval')
+            value['StartCalendarInterval'] = dict(Hour=9, Minute=0)
+            if enable and now().astimezone().utcoffset() != timedelta(hours=9):
+                raise ValueError('Set macOS system timezone to Asia/Seoul before enabling the daily calendar')
         path = state / 'local.ai-usage.plist'; path.write_bytes(plistlib.dumps(value))
         if enable:
             import shutil
@@ -371,6 +452,7 @@ def main():
     p = sub.add_parser('report'); p.add_argument('--preview', action='store_true'); p.add_argument('--year', type=int)
     p = sub.add_parser('approve'); p.add_argument('--fingerprint', required=True)
     sub.add_parser('status'); sub.add_parser('sync'); sub.add_parser('scheduled')
+    sub.add_parser('publish-retry'); sub.add_parser('publish-status')
     p = sub.add_parser('kb-selection'); p.add_argument('--document', required=True); p.add_argument('--task', required=True)
     p = sub.add_parser('accept-correction'); p.add_argument('--source', required=True); p.add_argument('--candidate', required=True); p.add_argument('--reason', required=True, choices=['verified_source_correction', 'verified_source_replacement'])
     p = sub.add_parser('session-key'); p.add_argument('--tool', choices=['Codex','Claude'], required=True); p.add_argument('--id', required=True)
@@ -392,7 +474,16 @@ def main():
             if not config:
                 raise ValueError('initialize the tracking configuration first')
             with lock(config['state']):
-                if args.command == 'run':
+                if args.command in ('run','scheduled','publish-retry') and config.get('publisher',{}).get('mode') == 'git-workflow':
+                    from usage_git_publish import daily,settings,validate_remote
+                    target=guard(config)
+                    validate_remote(settings(config),git(target,'remote','get-url','origin'))
+                    result=daily(config,lambda:run(config,False),lambda:sync(config),retry_only=args.command=='publish-retry')
+                elif args.command=='publish-retry':
+                    raise ValueError('Git publishing is not enabled in configuration')
+                elif args.command=='publish-status':
+                    result=read(Path(config['state'])/'git-publish-status.json',dict(state='not_run'))
+                elif args.command == 'run':
                     result = run(config, args.sync)
                 elif args.command == 'scheduled':
                     from usage_store import TZ
@@ -422,8 +513,16 @@ def main():
                     result = dict(approved=True)
                 elif args.command == 'status':
                     result = dict(run=read(Path(config['state']) / 'run.json', {}), sync=read(Path(config['state']) / 'sync.json', {}), approved=is_approved(config))
+                    result['publisher']=read(Path(config['state'])/'git-publish-status.json',dict(state='not_run'))
                 elif args.command == 'sync':
+                    if config.get('publisher',{}).get('mode')=='git-workflow':
+                        from usage_git_publish import Publisher,settings,validate_remote
+                        validate_remote(settings(config),git(guard(config),'remote','get-url','origin'))
                     result = sync(config); atomic(Path(config['state']) / 'sync.json', result)
+                    if config.get('publisher',{}).get('mode')=='git-workflow':
+                        publisher=Publisher(config);publisher.enqueue(result['revision'])
+                        result['publisher']=publisher.retry()
+                        atomic(Path(config['state'])/'git-publish-status.json',result)
                 elif args.command == 'session-key':
                     result = dict(session=digest([args.tool, args.id]))
                 elif args.command == 'accept-correction':

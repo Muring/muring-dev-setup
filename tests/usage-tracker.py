@@ -329,6 +329,7 @@ class GitTests(unittest.TestCase):
             return real(path,*args,**kwargs)
         with patch.object(tracker,'git',side_effect=race):result=tracker.sync(self.cfg)
         self.assertEqual(result['attempts'],2);self.assertFalse(any('--force' in p for p in pushes))
+        self.assertEqual(result['revision'],git(self.cfg['worktree'],'rev-parse','HEAD'))
     def test_generated_windows_and_macos_scheduler_formats(self):
         import xml.etree.ElementTree as ET, plistlib
         with patch.object(tracker.platform,'system',return_value='Windows'):
